@@ -16,40 +16,74 @@ import android.widget.*
 class MainActivity : Activity() {
     private lateinit var probe: ClassicAdapterProbe
     private lateinit var content: LinearLayout
-    private val dark = Color.rgb(12, 17, 27)
-    private val surface = Color.rgb(25, 34, 50)
+    private val dark = Color.rgb(8, 14, 25)
+    private val surface = Color.rgb(22, 34, 52)
     private val foreground = Color.rgb(239, 244, 255)
     private val muted = Color.rgb(164, 179, 201)
+    private val cyan = Color.rgb(106, 213, 255)
+    private fun dp(n: Int): Int = (n * resources.displayMetrics.density).toInt()
     override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); probe = ClassicAdapterProbe(this); showHome() }
     override fun onDestroy() { probe.close(); super.onDestroy() }
 
     private fun panel(): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL; setPadding(22, 20, 22, 20)
-        background = GradientDrawable().apply { setColor(surface); cornerRadius = 24f }
-        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 14 }
+        orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(19), dp(20), dp(19))
+        background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(surface, Color.rgb(17, 27, 43))).apply {
+            cornerRadius = dp(23).toFloat(); setStroke(dp(1), Color.rgb(43, 61, 81))
+        }
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(14) }
     }
     private fun label(text: String, size: Float = 15f, color: Int = foreground, bold: Boolean = false): TextView = TextView(this).apply {
         this.text = text; textSize = size; setTextColor(color)
         if (bold) setTypeface(null, Typeface.BOLD)
-        setPadding(0, 3, 0, 6)
+        setPadding(0, dp(3), 0, dp(7))
     }
     private fun button(text: String, action: () -> Unit): Button = Button(this).apply {
-        this.text = text; isAllCaps = false; setOnClickListener { action() }
+        this.text = text; isAllCaps = false; textSize = 14f; setTextColor(Color.rgb(4, 24, 37))
+        background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(cyan, Color.rgb(131, 232, 255))).apply { cornerRadius = dp(16).toFloat() }
+        setPadding(dp(14), dp(6), dp(14), dp(6)); setOnClickListener { action() }
     }
     private fun begin(title: String) {
-        val scroll = ScrollView(this).apply { setBackgroundColor(dark); isFillViewport = true }
-        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 28, 24, 32) }
-        scroll.addView(content); setContentView(scroll)
+        val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(dark) }
+        val scroll = ScrollView(this).apply { isFillViewport = true; isVerticalScrollBarEnabled = false }
+        content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(16), dp(20), dp(20)) }
+        scroll.addView(content)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        root.addView(navigation(title))
+        setContentView(root)
         if (Build.VERSION.SDK_INT >= 30) {
-            scroll.setOnApplyWindowInsetsListener { view, insets ->
+            root.setOnApplyWindowInsetsListener { view, insets ->
                 val bars = insets.getInsets(WindowInsets.Type.systemBars())
                 view.setPadding(0, bars.top, 0, bars.bottom)
                 insets
             }
-            scroll.requestApplyInsets()
-        } else scroll.fitsSystemWindows = true
-        content.addView(label("dynamicOS  /  DIAGNOSTICS", 13f, Color.rgb(104, 195, 246), true))
-        content.addView(label(title, 28f, foreground, true))
+            root.requestApplyInsets()
+        } else root.fitsSystemWindows = true
+        val brand = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        brand.addView(ImageView(this).apply {
+            setImageResource(dynamic.os.ocu.R.drawable.dynamic_os_mark)
+            layoutParams = LinearLayout.LayoutParams(dp(64), dp(64))
+        })
+        val brandText = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(10), 0, 0, 0) }
+        brandText.addView(label("dynamicOS", 22f, foreground, true))
+        brandText.addView(label("OCU CONTROL CENTER  ·  2026", 10f, cyan, true))
+        brand.addView(brandText)
+        content.addView(brand)
+        content.addView(label(title, 30f, foreground, true))
+    }
+    private fun navigation(selected: String): LinearLayout {
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; setPadding(dp(5), dp(7), dp(5), dp(7))
+            setBackgroundColor(Color.rgb(17, 27, 42))
+        }
+        val entries = listOf(Triple("⌂", "Übersicht", { showHome() }), Triple("◉", "Adapter", { showAdapter() }), Triple("▤", "Operationen", { showCatalog() }), Triple("✦", "Recovery", { showRecovery() }))
+        entries.forEach { (symbol, name, action) ->
+            val active = selected.contains(name, true) || (name == "Übersicht" && selected == "OCU Recovery") || (name == "Recovery" && selected.contains("B200049"))
+            val item = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(0, dp(5), 0, dp(5)); setOnClickListener { action() } }
+            item.addView(label(symbol, 23f, if (active) cyan else muted, true).apply { gravity = Gravity.CENTER })
+            item.addView(label(name, 10f, if (active) cyan else muted, active).apply { gravity = Gravity.CENTER })
+            bar.addView(item, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        return bar
     }
     private fun addPanel(title: String, body: String, action: Pair<String, () -> Unit>? = null) {
         val p = panel(); p.addView(label(title, 18f, foreground, true)); p.addView(label(body, 14f, muted))
@@ -57,14 +91,14 @@ class MainActivity : Activity() {
     }
     private fun showHome() {
         begin("OCU Recovery")
-        addPanel("Zielsystem", "VW T-Cross R-Line 2025\nSteuergerät 75 · J949\nLG 2GA 035 284 A · H11 / SW 0619\nFehler: B200049 – Interner Elektronikfehler")
-        addPanel("Bluetooth-Schnittstelle prüfen", "Gekoppelte Bluetooth-Classic-Geräte anzeigen, SPP-Verbindung versuchen und ELM-Adapteridentifikation lesen. Der EVO kann auch BLE verwenden; in diesem Fall ist SPP nicht verfügbar.", "Adapterprüfung" to { showAdapter() })
-        addPanel("Operationskatalog", "Alle Diagnose- und Wiederherstellungsbereiche mit Risiko- und Verfügbarkeitsstatus.", "Katalog öffnen" to { showCatalog() })
-        addPanel("Recovery-Ablauf", "Gesicherte Prüfreihenfolge für B200049; keine automatische Fehlerunterdrückung.", "Ablauf ansehen" to { showRecovery() })
+        addPanel("●  SYSTEMSTATUS  /  DIAGNOSE", "VW T-Cross R-Line 2025\nSteuergerät 75  ·  J949\nLG 2GA 035 284 A  |  H11 / SW 0619\n\nB200049  –  Interner Elektronikfehler")
+        addPanel("◉  Adapter verbinden", "Carista EVO über Bluetooth prüfen. Zunächst wird nur die Adapteridentifikation angefordert.", "VERBINDUNG PRÜFEN" to { showAdapter() })
+        addPanel("▤  Diagnose & Operationen", "Alle verfügbaren Dienste mit Freigabe-, Risiko- und Implementierungsstatus.", "OPERATIONEN ANSEHEN" to { showCatalog() })
+        addPanel("✦  Geführte Wiederherstellung", "Sicherer Prüfpfad für B200049. Keine ungeprüften Änderungen am Notrufsystem.", "RECOVERY ÖFFNEN" to { showRecovery() })
         addPanel("Vorabcheck", "OCU vollständig eingebaut; Steckverbindungen, Versorgung und Batterie prüfen. Ohne nachweislich intakte SOS-Funktion ist die Warnung sicherheitsrelevant.")
     }
     private fun showAdapter() {
-        begin("Adapterprüfung")
+        begin("Adapter")
         content.addView(button("← Übersicht") { showHome() })
         if (Build.VERSION.SDK_INT >= 31 && (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED || checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED)) {
             addPanel("Berechtigung erforderlich", "Bluetooth-Verbindungen und Suche nach gekoppelten Adaptern für dynamicOS OCU Recovery erlauben.", "Berechtigungen anfragen" to {
@@ -103,7 +137,7 @@ class MainActivity : Activity() {
         }
     }
     private fun showRecovery() {
-        begin("B200049 · Prüfpfad")
+        begin("B200049 · Recovery")
         content.addView(button("← Übersicht") { showHome() })
         addPanel("1  Diagnose sichern", "Steuergerät 75 identifizieren, DTC-Status, Umgebungsbedingungen, Messwerte und Protokoll exportieren.")
         addPanel("2  Hardware prüfen", "Versorgung, Notrufbatterie, Steckkontakte und Antennenpfade auf realen Fehler prüfen. Keine Annahme eines Antennendefekts allein aus B200049.")
