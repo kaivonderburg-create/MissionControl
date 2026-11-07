@@ -179,7 +179,7 @@ class MainActivity : Activity() {
         val spinner = Spinner(this).apply { adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, options); setSelection(preferences.getInt("transport", 0)) }
         p.addView(spinner)
         p.addView(label("Adapterantwort-Zeitlimit (ms)", 16f, foreground, true))
-        val timeout = EditText(this).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER; setText(preferences.getInt("timeout_ms", 2500).toString()); setTextColor(foreground); hint = "500–10000" }
+        val timeout = EditText(this).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER; setText(preferences.getInt("timeout_ms", 2500).toString()); setTextColor(this@MainActivity.foreground); hint = "500–10000" }
         p.addView(timeout)
         p.addView(button("EINSTELLUNGEN SPEICHERN") {
             val ms = timeout.text.toString().toIntOrNull()?.coerceIn(500, 10000) ?: 2500
@@ -228,7 +228,7 @@ class MainActivity : Activity() {
         steps.forEachIndexed { index, step ->
             val p = panel()
             val check = CheckBox(this).apply {
-                text = "${index+1}. ${step.first}"; textSize = 17f; setTextColor(foreground)
+                text = "${index+1}. ${step.first}"; textSize = 17f; setTextColor(this@MainActivity.foreground)
                 isChecked = preferences.getBoolean("recovery_$index", false)
                 setOnCheckedChangeListener { _, checked -> preferences.edit().putBoolean("recovery_$index", checked).apply(); sessionLog.add("Recovery-Checkliste Schritt ${index+1}: ${if(checked) "als erledigt markiert" else "zurückgesetzt"}") }
             }
