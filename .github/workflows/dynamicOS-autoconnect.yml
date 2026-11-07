@@ -1,0 +1,97 @@
+name: dynamicOS AutoConnect F9211B APK
+
+on:
+  push:
+    branches:
+      - dynamicOS-autoconnect
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout build definition
+        uses: actions/checkout@v4
+
+      - name: Fetch pinned Android Auto receiver source
+        run: |
+          git clone https://github.com/andreknieriem/open-headunit.git receiver
+          git -C receiver checkout --detach ae74788d8312dd7a735775ddc21370f1741a7af1
+
+      - name: Apply dynamicOS F9211B identity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("receiver")
+          replacements = {
+              "app/build.gradle.kts": [
+                  ('applicationId = "com.andrerinas.headunitrevived"', 'applicationId = "dynamicos.autoconnect"'),
+                  ('versionName = "4.0.0-beta2"', 'versionName = "0.1.0-f9211b"'),
+              ],
+              "settings.gradle.kts": [
+                  ('rootProject.name = "open-headunit"', 'rootProject.name = "dynamicOS-AutoConnect"'),
+              ],
+              "app/src/main/res/values/strings.xml": [
+                  ('<string name="app_name">Open Headunit</string>', '<string name="app_name">dynamicOS AutoConnect</string>'),
+                  ('<string name="title">Open Headunit</string>', '<string name="title">dynamicOS AutoConnect</string>'),
+              ],
+              "app/src/main/res/values-de/strings.xml": [
+                  ('<string name="app_name">Open Headunit</string>', '<string name="app_name">dynamicOS AutoConnect</string>'),
+                  ('<string name="title">Open Headunit</string>', '<string name="title">dynamicOS AutoConnect</string>'),
+              ],
+          }
+          for name, changes in replacements.items():
+              path = root / name
+              data = path.read_text()
+              for old, new in changes:
+                  if old not in data:
+                      raise SystemExit(f"Expected source missing in {name}: {old}")
+                  data = data.replace(old, new)
+              path.write_text(data)
+          PY
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: ''
+
+      - name: Install pinned Android dependencies
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
+
+      - name: Configure Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile installable APK
+        working-directory: receiver
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleGithubDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-AutoConnect-F9211B-APK
+          path: receiver/app/build/outputs/apk/github/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish license and matching source patch instructions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-AutoConnect-Source-License
+          path: |
+            receiver/LICENSE
+            receiver/COPYRIGHT_MICHAEL_REID_GPLv3AFFERO.txt
+            receiver/DYNAMICOS_F9211B.md
+          if-no-files-found: warn
