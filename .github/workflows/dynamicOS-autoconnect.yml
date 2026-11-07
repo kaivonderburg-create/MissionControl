@@ -30,7 +30,7 @@ jobs:
           replacements = {
               "app/build.gradle.kts": [
                   ('applicationId = "com.andrerinas.headunitrevived"', 'applicationId = "dynamicos.autoconnect"'),
-                  ('versionName = "4.0.0-beta2"', 'versionName = "0.1.0-f9211b"'),
+                  ('versionName = "4.0.0-beta2"', 'versionName = "0.2.0-f9211b"'),
               ],
               "settings.gradle.kts": [
                   ('rootProject.name = "open-headunit"', 'rootProject.name = "dynamicOS-AutoConnect"'),
@@ -52,6 +52,44 @@ jobs:
                       raise SystemExit(f"Expected source missing in {name}: {old}")
                   data = data.replace(old, new)
               path.write_text(data)
+          # dynamicOS Bluetooth pairing shortcut for legacy Android 8.1 head units.
+          settings_path = root / "app/src/main/java/com/andrerinas/openheadunit/main/SettingsFragment.kt"
+          content = settings_path.read_text()
+          anchor = '        items.add(SettingItem.SubHeader("bluetooth", R.string.settings_bluetooth))'
+          if content.count(anchor) != 1:
+              raise SystemExit("Bluetooth settings anchor not found or ambiguous")
+          pairing_row = """
+        items.add(SettingItem.SettingEntry(
+            stableId = "dynamicOsBluetoothPairing",
+            nameResId = R.string.dynamicos_bluetooth_pairing,
+            value = getString(R.string.dynamicos_bluetooth_pairing_hint),
+            onClick = {
+                try {
+                    startActivity(Intent(SystemSettings.ACTION_BLUETOOTH_SETTINGS))
+                } catch (_: ActivityNotFoundException) {
+                    Toast.makeText(requireContext(), R.string.dynamicos_bluetooth_settings_unavailable, Toast.LENGTH_LONG).show()
+                }
+            }
+        ))
+"""
+          settings_path.write_text(content.replace(anchor, anchor + pairing_row))
+          translations = {
+              "values": [
+                  ("dynamicos_bluetooth_pairing", "Pair phone via Bluetooth"),
+                  ("dynamicos_bluetooth_pairing_hint", "Open Bluetooth settings, pair the phone with the car radio, then return to start wireless Android Auto."),
+                  ("dynamicos_bluetooth_settings_unavailable", "Bluetooth settings are not available on this head unit."),
+              ],
+              "values-de": [
+                  ("dynamicos_bluetooth_pairing", "Smartphone per Bluetooth koppeln"),
+                  ("dynamicos_bluetooth_pairing_hint", "Bluetooth-Einstellungen öffnen, Smartphone mit dem Radio koppeln und danach Wireless Android Auto starten."),
+                  ("dynamicos_bluetooth_settings_unavailable", "Bluetooth-Einstellungen auf dieser Headunit nicht verfügbar."),
+              ],
+          }
+          for folder, entries in translations.items():
+              path = root / "app/src/main/res" / folder / "strings.xml"
+              data = path.read_text()
+              tags = "\\n".join(f'    <string name="{key}">{value}</string>' for key, value in entries)
+              path.write_text(data.replace("<resources>", "<resources>\\n" + tags, 1))
           PY
 
       - name: Set up Java 21
