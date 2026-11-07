@@ -5,6 +5,9 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
+import android.graphics.Canvas;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
@@ -26,6 +29,7 @@ import java.util.Locale;
 public final class LauncherActivity extends Activity {
     private final int bg = 0xff070f1b, panel = 0xff0e2030, cyan = 0xff00dcef;
     private LinearLayout root;
+    private int dp(float n) { return (int)(n * getResources().getDisplayMetrics().density + .5f); }
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -52,33 +56,75 @@ public final class LauncherActivity extends Activity {
     private void scaffold(String subtitle) {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(22, 10, 22, 12);
+        root.setPadding(dp(22), dp(6), dp(22), dp(6));
         root.setBackgroundColor(bg);
         LinearLayout top = new LinearLayout(this);
         top.setGravity(Gravity.CENTER_VERTICAL);
-        TextView brand = label("dynamicOS  |  " + subtitle, 24, Color.WHITE, true);
-        top.addView(brand, new LinearLayout.LayoutParams(0, 53, 1));
+        TextView brand = label("dynamic", 24, Color.WHITE, true);
+        top.addView(brand);
+        top.addView(label("OS", 24, cyan, true));
+        TextView separator = label("   │   " + subtitle, 19, 0xffb6cad9, false);
+        top.addView(separator, new LinearLayout.LayoutParams(0, dp(57), 1));
         String now = new SimpleDateFormat("HH:mm", Locale.GERMANY).format(new Date());
-        top.addView(label(now + "   ◉", 21, 0xffc8eff5, false));
+        top.addView(label(now + "    ◈", 20, 0xffc8eff5, false));
         root.addView(top);
         View line = new View(this); line.setBackgroundColor(0xff125468);
         root.addView(line, new LinearLayout.LayoutParams(-1, 1));
         setContentView(root);
     }
 
-    private TextView tile(String icon, String title, boolean active, Runnable clicked) {
-        TextView view = label(icon + "\n" + title, 25, Color.WHITE, false);
+    private LinearLayout tile(String icon, String title, boolean active, Runnable clicked) {
+        LinearLayout view = new LinearLayout(this);
+        view.setOrientation(LinearLayout.VERTICAL);
         view.setGravity(Gravity.CENTER);
+        IconView graphic = new IconView(icon, active ? cyan : Color.WHITE);
+        view.addView(graphic, new LinearLayout.LayoutParams(dp(66), dp(66)));
+        TextView caption = label(title, 22, Color.WHITE, true);
+        caption.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, dp(42));
+        tp.topMargin = dp(8);
+        view.addView(caption, tp);
         view.setBackground(shape(panel, active ? cyan : 0xff315062));
         view.setOnClickListener(v -> clicked.run());
         view.setContentDescription(title);
         return view;
     }
 
+    private final class IconView extends View {
+        private final String type;
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        IconView(String type, int color) {
+            super(LauncherActivity.this);
+            this.type = type;
+            p.setColor(color); p.setStyle(Paint.Style.STROKE); p.setStrokeWidth(4);
+            p.setStrokeCap(Paint.Cap.ROUND); p.setStrokeJoin(Paint.Join.ROUND);
+        }
+        @Override protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            canvas.save(); canvas.scale(getWidth()/100f, getHeight()/100f);
+            if ("auto".equals(type)) {
+                Path a = new Path(); a.moveTo(50,13); a.lineTo(83,78); a.lineTo(52,62); a.lineTo(19,78); a.close();
+                canvas.drawPath(a,p); canvas.drawLine(50,13,50,55,p);
+            } else if ("music".equals(type)) {
+                canvas.drawLine(43,25,43,72,p);canvas.drawLine(43,25,79,17,p);
+                canvas.drawLine(79,17,79,63,p);canvas.drawOval(21,67,43,83,p);canvas.drawOval(57,58,79,74,p);
+            } else if ("car".equals(type)) {
+                Path c = new Path();c.moveTo(18,57);c.lineTo(28,34);c.quadTo(31,27,40,27);c.lineTo(67,27);c.quadTo(74,28,77,35);c.lineTo(85,57);c.close();canvas.drawPath(c,p);
+                canvas.drawRoundRect(12,51,88,75,9,9,p);canvas.drawLine(24,75,24,82,p);canvas.drawLine(76,75,76,82,p);
+                canvas.drawLine(25,57,34,57,p);canvas.drawLine(66,57,75,57,p);
+            } else {
+                canvas.drawCircle(50,50,17,p);
+                for(int i=0;i<8;i++){double a=i*Math.PI/4;float x=(float)Math.cos(a),y=(float)Math.sin(a);
+                    canvas.drawLine(50+25*x,50+25*y,50+36*x,50+36*y,p);}
+            }
+            canvas.restore();
+        }
+    }
+
     private void home() {
         scaffold("Fiesta");
         LinearLayout content = new LinearLayout(this);
-        content.setPadding(0, 14, 0, 14);
+        content.setPadding(0, dp(13), 0, dp(12));
         root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
 
         LinearLayout vehicle = new LinearLayout(this);
@@ -89,56 +135,93 @@ public final class LauncherActivity extends Activity {
         car.setImageResource(R.drawable.fiesta_graphite);
         car.setScaleType(ImageView.ScaleType.FIT_CENTER);
         vehicle.addView(car, new LinearLayout.LayoutParams(-1, 0, 1));
-        TextView model = label("FORD FIESTA", 23, Color.WHITE, true); model.setGravity(Gravity.CENTER);
-        vehicle.addView(model);
-        TextView plate = label("W-S 107", 18, 0xffaccbd4, false); plate.setGravity(Gravity.CENTER);
-        vehicle.addView(plate);
-        TextView year = label("Mk7 · 2015 · Dunkelgrau", 13, 0xff7f9dac, false); year.setGravity(Gravity.CENTER);
-        vehicle.addView(year);
+        TextView model = label("FORD FIESTA  ·  W-S 107", 20, Color.WHITE, true); model.setGravity(Gravity.CENTER);
+        vehicle.addView(model, new LinearLayout.LayoutParams(-1, dp(35)));
+        TextView year = label("Mk7 Facelift    |    2015    |    Dunkelgrau", 13, 0xff91b2c1, false); year.setGravity(Gravity.CENTER);
+        vehicle.addView(year, new LinearLayout.LayoutParams(-1, dp(28)));
         LinearLayout.LayoutParams vehicleLp = new LinearLayout.LayoutParams(0, -1, 0.38f);
-        vehicleLp.setMargins(0, 0, 12, 0);
+        vehicleLp.setMargins(0, 0, dp(10), 0);
         content.addView(vehicle, vehicleLp);
 
         GridLayout grid = new GridLayout(this);
         grid.setColumnCount(2); grid.setRowCount(2);
         content.addView(grid, new LinearLayout.LayoutParams(0, -1, 0.62f));
-        addTile(grid, "⌁", "Android Auto", true, this::autoConnect, 0, 0);
-        addTile(grid, "♫", "Musik", false, this::openMusic, 0, 1);
-        addTile(grid, "▱", "Fahrzeug", false, this::vehicleMenu, 1, 0);
-        addTile(grid, "⚙", "Einstellungen", false, this::settingsMenu, 1, 1);
+        addTile(grid, "auto", "Android Auto", true, this::autoConnect, 0, 0);
+        addTile(grid, "music", "Musik", false, this::openMusic, 0, 1);
+        addTile(grid, "car", "Fahrzeug", false, this::vehicleMenu, 1, 0);
+        addTile(grid, "settings", "Einstellungen", false, this::settingsMenu, 1, 1);
 
-        TextView footer = label("dynamicOS Fiesta Lite   ·   Android 8.1   ·   W-S 107", 13, 0xff7da5b6, false);
-        root.addView(footer);
+        navBar("Start");
     }
 
     private void addTile(GridLayout grid, String icon, String name, boolean selected,
                          Runnable action, int row, int col) {
         GridLayout.LayoutParams lp = new GridLayout.LayoutParams(GridLayout.spec(row, 1f), GridLayout.spec(col, 1f));
         lp.width = 0; lp.height = 0;
-        lp.setMargins(5, 5, 5, 5);
+        lp.setMargins(dp(4), dp(4), dp(4), dp(4));
         grid.addView(tile(icon, name, selected, action), lp);
+    }
+
+    private void navBar(String selected) {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setGravity(Gravity.CENTER);
+        bar.setBackground(shape(0xff0b1b2c, 0xff20475a));
+        String[] names={"Start","Fahrzeug","Apps","Einstellungen"};
+        Runnable[] actions={this::home,this::vehicleMenu,this::allApps,this::settingsMenu};
+        for(int i=0;i<names.length;i++) {
+            final int index=i;
+            TextView item=label(names[i],16,names[i].equals(selected)?cyan:0xffd9e9f0,names[i].equals(selected));
+            item.setGravity(Gravity.CENTER);
+            bar.addView(item,new LinearLayout.LayoutParams(0,dp(51),1));
+            item.setOnClickListener(v->actions[index].run());
+        }
+        root.addView(bar);
     }
 
     private void menu(String title, String[][] items, Runnable[] actions) {
         scaffold(title);
-        ScrollView scroller = new ScrollView(this);
-        LinearLayout list = new LinearLayout(this);
-        list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(4, 12, 4, 4);
+        LinearLayout main = new LinearLayout(this);
+        main.setPadding(0,dp(15),0,dp(14));
+        root.addView(main,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout sidebar = new LinearLayout(this);
+        sidebar.setOrientation(LinearLayout.VERTICAL);
+        sidebar.setPadding(dp(22),dp(25),dp(15),dp(14));
+        sidebar.setBackground(shape(0xff0c2435,0xff254e64));
+        TextView section = label(title.toUpperCase(Locale.GERMANY),24,Color.WHITE,true);
+        sidebar.addView(section);
+        TextView subtitle=label("dynamicOS  /  Fiesta",14,cyan,false);
+        sidebar.addView(subtitle);
+        View divider = new View(this); divider.setBackgroundColor(0xff24556b);
+        LinearLayout.LayoutParams divP=new LinearLayout.LayoutParams(-1,dp(1));divP.topMargin=dp(18);divP.bottomMargin=dp(18);
+        sidebar.addView(divider,divP);
+        String detail="Direktzugriff auf die wichtigsten Funktionen.\nKlare Wege, kurze Reaktionszeiten.";
+        if("Fahrzeug".equals(title)) detail="Ford Fiesta Mk7\nDunkelgrau · W-S 107\n\nSteuerung und Diagnose.";
+        if("Android Auto".equals(title)) detail="AutoConnect\nBluetooth und WLAN\n\nEmpfänger separat erforderlich.";
+        sidebar.addView(label(detail,16,0xffacc7d5,false));
+        LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(0,-1,.30f);
+        slp.rightMargin=dp(12);main.addView(sidebar,slp);
+
+        GridLayout cards = new GridLayout(this);
+        cards.setColumnCount(2);
+        main.addView(cards,new LinearLayout.LayoutParams(0,-1,.70f));
         for (int i = 0; i < items.length; i++) {
             final int index = i;
-            TextView item = label(items[i][0] + "     " + items[i][1] + "       ›", 22, Color.WHITE, false);
-            item.setPadding(23, 8, 23, 8);
-            item.setBackground(shape(panel, 0xff244858));
-            LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, 69); p.bottomMargin = 8;
-            list.addView(item, p);
+            LinearLayout card = new LinearLayout(this);
+            card.setGravity(Gravity.CENTER_VERTICAL);
+            card.setPadding(dp(20),dp(12),dp(18),dp(12));
+            card.setBackground(shape(panel,0xff315468));
+            TextView symbol=label(items[i][0],32,cyan,true);
+            card.addView(symbol,new LinearLayout.LayoutParams(dp(55),-1));
+            TextView item=label(items[i][1],19,Color.WHITE,true);
+            card.addView(item,new LinearLayout.LayoutParams(0,-1,1));
+            GridLayout.LayoutParams p=new GridLayout.LayoutParams(GridLayout.spec(i/2,1f),GridLayout.spec(i%2,1f));
+            p.width=0;p.height=0;p.setMargins(dp(5),dp(5),dp(5),dp(5));
+            cards.addView(card,p);
+            card.setContentDescription(items[i][1]);
+            card.setOnClickListener(v -> actions[index].run());
             item.setOnClickListener(v -> actions[index].run());
         }
-        TextView back = label("‹  Zurück zum Start", 18, cyan, false);
-        back.setPadding(16, 12, 12, 12);
-        back.setOnClickListener(v -> home());
-        list.addView(back);
-        scroller.addView(list); root.addView(scroller, new LinearLayout.LayoutParams(-1, 0, 1));
+        navBar(title);
     }
 
     private void vehicleMenu() {
@@ -212,7 +295,8 @@ public final class LauncherActivity extends Activity {
         }
         TextView back = label("‹  Zurück", 18, cyan, false);
         back.setPadding(18, 16, 12, 16); back.setOnClickListener(v -> home()); list.addView(back);
-        scroller.addView(list); root.addView(scroller);
+        scroller.addView(list); root.addView(scroller,new LinearLayout.LayoutParams(-1,0,1));
+        navBar("Apps");
     }
 
     @Override public void onBackPressed() { home(); }
