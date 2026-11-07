@@ -2,6 +2,7 @@ package dynamic.os.ocu
 
 import android.app.Activity
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -12,18 +13,23 @@ import android.view.Gravity
 import android.view.View
 import android.view.WindowInsets
 import android.widget.*
+import android.bluetooth.BluetoothDevice
 
 class MainActivity : Activity() {
     private lateinit var probe: ClassicAdapterProbe
+    private lateinit var ble: BleExplorer
+    private lateinit var sessionLog: SessionLog
     private lateinit var content: LinearLayout
+    private val preferences by lazy { getSharedPreferences("dynamic_os_ocu", MODE_PRIVATE) }
+    private var pendingExport = ""
     private val dark = Color.rgb(8, 14, 25)
     private val surface = Color.rgb(22, 34, 52)
     private val foreground = Color.rgb(239, 244, 255)
     private val muted = Color.rgb(164, 179, 201)
     private val cyan = Color.rgb(106, 213, 255)
     private fun dp(n: Int): Int = (n * resources.displayMetrics.density).toInt()
-    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); probe = ClassicAdapterProbe(this); showHome() }
-    override fun onDestroy() { probe.close(); super.onDestroy() }
+    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); probe = ClassicAdapterProbe(this); sessionLog = SessionLog(this); ble = BleExplorer(this) { sessionLog.add(it) }; sessionLog.add("App gestartet; Schreiboperationen nicht aktiviert"); showHome() }
+    override fun onDestroy() { ble.close(); probe.close(); super.onDestroy() }
 
     private fun panel(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(19), dp(20), dp(19))
@@ -95,6 +101,7 @@ class MainActivity : Activity() {
         addPanel("◉  Adapter verbinden", "Carista EVO über Bluetooth prüfen. Zunächst wird nur die Adapteridentifikation angefordert.", "VERBINDUNG PRÜFEN" to { showAdapter() })
         addPanel("▤  Diagnose & Operationen", "Alle verfügbaren Dienste mit Freigabe-, Risiko- und Implementierungsstatus.", "OPERATIONEN ANSEHEN" to { showCatalog() })
         addPanel("✦  Geführte Wiederherstellung", "Sicherer Prüfpfad für B200049. Keine ungeprüften Änderungen am Notrufsystem.", "RECOVERY ÖFFNEN" to { showRecovery() })
+        addPanel("⚙  Werkzeuge & Konfiguration", "Adapterpräferenzen, Zeitlimits, Debug-Protokolle und Export.", "EINSTELLUNGEN" to { showSettings() })
         addPanel("Vorabcheck", "OCU vollständig eingebaut; Steckverbindungen, Versorgung und Batterie prüfen. Ohne nachweislich intakte SOS-Funktion ist die Warnung sicherheitsrelevant.")
     }
     private fun showAdapter() {
@@ -118,10 +125,82 @@ class MainActivity : Activity() {
                 val status = label("Verbinde…", 14f, muted)
                 content.addView(status)
                 Thread {
-                    val result = try { probe.connect(device) + "\n\nATI:\n" + probe.probeElm() } catch (e: Exception) { "SPP nicht erreichbar: ${e.javaClass.simpleName}: ${e.message}" }
+                    val result = try { probe.connect(device) + "\n\nATI:\n" + probe.probeElm(preferences.getInt("timeout_ms", 2500).toLong()) } catch (e: Exception) { "SPP nicht erreichbar: ${e.javaClass.simpleName}: ${e.message}" }
+                    sessionLog.add("SPP-Test $name: $result")
                     runOnUiThread { status.text = result }
                 }.start()
             })
+        }
+        addPanel("BLE / GATT-Gerätesuche", "BLE-Adapter ohne vorherige Android-Kopplung finden und angebotene GATT-Dienste anzeigen. Keine Nutzdaten an das Fahrzeug senden.", "BLE-SUCHLAUF" to { showBleScan() })
+        addPanel("Debug-Protokolle", "SPP- und BLE-Ergebnisse lokal protokollieren und exportieren.", "PROTOKOLL ÖFFNEN" to { showDebug() })
+    }
+    private fun showBleScan() {
+        begin("BLE-Geräte")
+        val resultPanel = panel()
+        val info = label("Suche läuft …", 14f, muted)
+        resultPanel.addView(info)
+        content.addView(resultPanel)
+        content.addView(button("SUCHE STOPPEN") { ble.stopScan(); info.text = "Suche beendet" })
+        val seen = hashSetOf<String>()
+        try {
+            ble.start { device, name, rssi ->
+                runOnUiThread {
+                    if (seen.add(device.address)) {
+                        val entry = panel()
+                        entry.addView(label(name, 17f, foreground, true))
+                        entry.addView(label("RSSI $rssi dBm  ·  ${device.address}", 12f, muted))
+                        entry.addView(button("GATT-DIENSTE LESEN") {
+                            begin("GATT-Analyse")
+                            val output = label("Verbinde …", 13f, muted)
+                            content.addView(output)
+                            try { ble.inspect(device) { report -> runOnUiThread { output.text = report } } } catch (e: Exception) { output.text = e.message ?: "Verbindungsfehler" }
+                            content.addView(button("ZURÜCK ZUR SUCHE") { ble.disconnect(); showBleScan() })
+                        })
+                        content.addView(entry)
+                    }
+                }
+            }
+        } catch (e: SecurityException) { info.text = "Bluetooth-Berechtigungen fehlen. Bitte im Adaptermenü freigeben." }
+        catch (e: Exception) { info.text = "BLE nicht verfügbar: ${e.message}" }
+    }
+    private fun showDebug() {
+        begin("Debug & Protokolle")
+        val textView = label(sessionLog.text(), 12f, muted)
+        val card = panel(); card.addView(textView); content.addView(card)
+        content.addView(button("PROTOKOLL EXPORTIEREN") { exportLog() })
+        content.addView(button("PROTOKOLL LEEREN") { sessionLog.clear(); showDebug() })
+    }
+    private fun showSettings() {
+        begin("Konfiguration")
+        addPanel("Sicherheitsmodus", "Nur lesende Operationen und Metadatenanalyse. Unbestätigte ECU-Schreibbefehle sind technisch nicht implementiert.")
+        val p = panel()
+        p.addView(label("Adapterpräferenz", 17f, foreground, true))
+        val options = arrayOf("Auto (manuell auswählen)", "Bluetooth Classic SPP", "Bluetooth LE / GATT")
+        val spinner = Spinner(this).apply { adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, options); setSelection(preferences.getInt("transport", 0)) }
+        p.addView(spinner)
+        p.addView(label("Adapterantwort-Zeitlimit (ms)", 16f, foreground, true))
+        val timeout = EditText(this).apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER; setText(preferences.getInt("timeout_ms", 2500).toString()); setTextColor(foreground); hint = "500–10000" }
+        p.addView(timeout)
+        p.addView(button("EINSTELLUNGEN SPEICHERN") {
+            val ms = timeout.text.toString().toIntOrNull()?.coerceIn(500, 10000) ?: 2500
+            preferences.edit().putInt("transport", spinner.selectedItemPosition).putInt("timeout_ms", ms).apply()
+            sessionLog.add("Konfiguration gespeichert: Adapter=${options[spinner.selectedItemPosition]}, Timeout=$ms ms")
+            Toast.makeText(this, "Einstellungen gespeichert", Toast.LENGTH_SHORT).show()
+        })
+        content.addView(p)
+        addPanel("Diagnose-Protokoll", "Alle erfassten Adapter- und GATT-Ereignisse ansehen und als TXT exportieren.", "DEBUG ÖFFNEN" to { showDebug() })
+    }
+    private fun exportLog() {
+        pendingExport = sessionLog.text()
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply { addCategory(Intent.CATEGORY_OPENABLE); type = "text/plain"; putExtra(Intent.EXTRA_TITLE, "dynamicOS_OCU_Debug.txt") }
+        startActivityForResult(intent, 200)
+    }
+    @Deprecated("Required by Android Activity document result API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 200 && resultCode == RESULT_OK && data?.data != null) {
+            try { contentResolver.openOutputStream(data.data!!)?.use { it.write(pendingExport.toByteArray(Charsets.UTF_8)) }; Toast.makeText(this, "Protokoll gespeichert", Toast.LENGTH_SHORT).show() }
+            catch (e: Exception) { Toast.makeText(this, "Export fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show() }
         }
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -138,11 +217,23 @@ class MainActivity : Activity() {
     }
     private fun showRecovery() {
         begin("B200049 · Recovery")
-        content.addView(button("← Übersicht") { showHome() })
-        addPanel("1  Diagnose sichern", "Steuergerät 75 identifizieren, DTC-Status, Umgebungsbedingungen, Messwerte und Protokoll exportieren.")
-        addPanel("2  Hardware prüfen", "Versorgung, Notrufbatterie, Steckkontakte und Antennenpfade auf realen Fehler prüfen. Keine Annahme eines Antennendefekts allein aus B200049.")
-        addPanel("3  OEM-Prüfplan", "Herstellervorgaben für Teilenummer 2GA035284A prüfen; ggf. dokumentierten ECU-Neustart oder Inbetriebnahme über ODIS ausführen.")
-        addPanel("4  Fehlerstatus neu bewerten", "Nur nach behobener Ursache und mit geeigneter Diagnosefreigabe Fehler löschen. Zündung wechseln und Fehler erneut lesen.")
-        addPanel("5  Notruffunktion validieren", "SOS-LED, Netzregistrierung, Antennen- und Batterie-Messwerte kontrollieren. Keine absichtliche Auslösung eines echten Notrufs zum Test.")
+        addPanel("Manueller Prüfablauf", "Hake einen Schritt nur ab, wenn du ihn tatsächlich durchgeführt und dokumentiert hast. Diese Checkliste sendet keine Befehle an das Fahrzeug.")
+        val steps = listOf(
+            "Diagnose sichern" to "Steuergerät 75, DTC-Status und Umgebungsbedingungen auslesen und dokumentieren.",
+            "Hardware prüfen" to "Versorgung, Steckkontakte und Notrufbatterie kontrollieren; Antennenfehler nicht allein aus B200049 ableiten.",
+            "OEM-Prüfplan" to "Herstellervorgaben für 2GA035284A und dokumentierte Neustart-/Inbetriebnahmefunktion prüfen.",
+            "Fehlerstatus neu bewerten" to "Nach der Reparatur im autorisierten Diagnosepfad löschen und anschließend erneut auslesen.",
+            "Notruffunktion validieren" to "SOS-LED, Netzstatus, Batterie und Selbsttest prüfen; keine echte Notrufauslösung zum Test."
+        )
+        steps.forEachIndexed { index, step ->
+            val p = panel()
+            val check = CheckBox(this).apply {
+                text = "${index+1}. ${step.first}"; textSize = 17f; setTextColor(foreground)
+                isChecked = preferences.getBoolean("recovery_$index", false)
+                setOnCheckedChangeListener { _, checked -> preferences.edit().putBoolean("recovery_$index", checked).apply(); sessionLog.add("Recovery-Checkliste Schritt ${index+1}: ${if(checked) "als erledigt markiert" else "zurückgesetzt"}") }
+            }
+            p.addView(check); p.addView(label(step.second, 13f, muted)); content.addView(p)
+        }
+        content.addView(button("DEBUG-PROTOKOLL ÖFFNEN") { showDebug() })
     }
 }
