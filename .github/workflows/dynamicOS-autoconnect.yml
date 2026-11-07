@@ -59,7 +59,7 @@ jobs:
           if content.count(anchor) != 1:
               raise SystemExit("Bluetooth settings anchor not found or ambiguous")
           pairing_row = """
-        items.add(SettingItem.SettingEntry(
+                  items.add(SettingItem.SettingEntry(
             stableId = "dynamicOsBluetoothPairing",
             nameResId = R.string.dynamicos_bluetooth_pairing,
             value = getString(R.string.dynamicos_bluetooth_pairing_hint),
@@ -70,8 +70,8 @@ jobs:
                     Toast.makeText(requireContext(), R.string.dynamicos_bluetooth_settings_unavailable, Toast.LENGTH_LONG).show()
                 }
             }
-        ))
-"""
+                  ))
+          """
           settings_path.write_text(content.replace(anchor, anchor + pairing_row))
           translations = {
               "values": [
@@ -88,8 +88,8 @@ jobs:
           for folder, entries in translations.items():
               path = root / "app/src/main/res" / folder / "strings.xml"
               data = path.read_text()
-              tags = "\\n".join(f'    <string name="{key}">{value}</string>' for key, value in entries)
-              path.write_text(data.replace("<resources>", "<resources>\\n" + tags, 1))
+              tags = "\n".join(f'    <string name="{key}">{value}</string>' for key, value in entries)
+              path.write_text(data.replace("<resources>", "<resources>\n" + tags, 1))
           PY
 
       - name: Set up Java 21
