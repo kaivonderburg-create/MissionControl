@@ -103,6 +103,7 @@ class MainActivity : Activity() {
         addPanel("▤  Diagnose & Operationen", "Alle verfügbaren Dienste mit Freigabe-, Risiko- und Implementierungsstatus.", "OPERATIONEN ANSEHEN" to { showCatalog() })
         addPanel("✦  Geführte Wiederherstellung", "Sicherer Prüfpfad für B200049. Keine ungeprüften Änderungen am Notrufsystem.", "RECOVERY ÖFFNEN" to { showRecovery() })
         addPanel("◈  OCU-Serviceakte", "Modulkennungen, LED-Status und Herstellervorgaben zu B200049 mit Diagnoseprotokoll abgleichen.", "SERVICEAKTE ÖFFNEN" to { showServiceRecord() })
+        addPanel("VW Online · Original-App", "Volkswagen-ID und Online-Fahrzeugstatus über die originale VW-App prüfen. Keine fremden Sitzungen oder Tokens auslesen.", "VW-APP ÖFFNEN" to { openVolkswagenApp() })
         addPanel("⚙  Werkzeuge & Konfiguration", "Adapterpräferenzen, Zeitlimits, Debug-Protokolle und Export.", "EINSTELLUNGEN" to { showSettings() })
         addPanel("Vorabcheck", "OCU vollständig eingebaut; Steckverbindungen, Versorgung und Batterie prüfen. Ohne nachweislich intakte SOS-Funktion ist die Warnung sicherheitsrelevant.")
     }
@@ -289,6 +290,7 @@ class MainActivity : Activity() {
 
     private fun showServiceRecord() {
         begin("OCU-Serviceakte")
+        addPanel("VW Online-Status prüfen", "Die originale Volkswagen-App kann den serverseitigen Fahrzeug-/Verbindungsstatus zeigen und je nach Fahrzeug Remote-Diagnose anbieten. Diese Funktionen sind nicht gleichbedeutend mit einer lokalen OCU-Initialisierung.", "ORIGINAL VW-APP STARTEN" to { openVolkswagenApp() })
         addPanel("Modulidentifikation", "Fahrzeug: VW T-Cross R-Line MJ 2025\nDiagnoseadresse: 0075 · J949\nBekannt: 2GA 035 284 A · H11 · SW 0619\nBeanstandung: B200049 nach zeitweiliger Trennung der OCU bei eingeschalteter Fahrzeugdiagnose/Start.\n\nAngaben bitte anhand eines neuen Steuergeräte-Scans bestätigen.")
         addPanel("TPI-Abgleich · B200049", "VW TPI 2070694/6 und 2072798/2 beschreiben für bestimmte J949-Varianten eine Prüfung der integrierten Backup-Antenne und anschließend geführte Fehlersuche. Die Teilefamilie 5WA ist nicht automatisch identisch mit deinem 2GA-Modul.\n\nOriginalablauf: DTC-Umgebungsdaten sichern → ODIS Geführte Fehlersuche → Reparaturvorschlag nach Steuergerätekennung → Anpassung/Inbetriebnahme → erneutes Auslesen → SOS-Status prüfen.")
         addPanel("Wiederanlauf / Initialisierung", "Das abgeklemmt gestartete Modul ist inzwischen wieder eingebaut. Ein kontrollierter Spannungsreset, ODIS-Neustart oder die OCU-Aktivierung darf erst nach der zu diesem Steuergerät passenden VW-Anweisung erfolgen. Die App sendet hier bewusst keine vermuteten UDS-Routine-IDs, SFD-Entsperrungen oder Werkseinstellungsbefehle.")
@@ -328,6 +330,16 @@ class MainActivity : Activity() {
             val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply { addCategory(Intent.CATEGORY_OPENABLE); type = "text/plain"; putExtra(Intent.EXTRA_TITLE, "dynamicOS_OCU_Servicebericht.txt") }
             startActivityForResult(intent, 200)
         })
+    }
+
+    private fun openVolkswagenApp() {
+        val launch = packageManager.getLaunchIntentForPackage("com.volkswagen.weconnect")
+        if (launch != null) {
+            try { startActivity(launch); sessionLog.add("Originale Volkswagen-App zur Online-Prüfung geöffnet") }
+            catch (e: Exception) { Toast.makeText(this, "VW-App konnte nicht gestartet werden: ${e.message}", Toast.LENGTH_LONG).show() }
+        } else {
+            Toast.makeText(this, "Volkswagen-App nicht installiert oder nicht verfügbar", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun showUdsConsole(device: BluetoothDevice) {
