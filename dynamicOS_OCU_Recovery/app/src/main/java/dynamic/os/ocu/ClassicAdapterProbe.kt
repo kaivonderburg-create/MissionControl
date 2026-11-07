@@ -79,12 +79,14 @@ class ClassicAdapterProbe(private val context: Context) : Closeable {
 
     /** Explicit, user-configured ISO-TP/UDS session. No guessed VW CAN identifiers. */
     @Synchronized fun udsRequest(header: String, request: String, timeoutMs: Long = 3500, bitrate: Int = 500): String {
+        configureUds(header, timeoutMs, bitrate)
+        return sendUdsPayload(request, timeoutMs)
+    }
+
+    /** Configure once before an authenticated sequence; do not reinitialize it between messages. */
+    @Synchronized fun configureUds(header: String, timeoutMs: Long = 3500, bitrate: Int = 500) {
         val cleanHeader = header.trim().uppercase()
         require(cleanHeader.matches(Regex("[0-9A-F]{3}|[0-9A-F]{8}"))) { "CAN-Header muss 3 oder 8 Hex-Zeichen enthalten" }
-        val cleanRequest = request.replace(" ", "").uppercase()
-        require(cleanRequest.length in 2..128 && cleanRequest.length % 2 == 0 && cleanRequest.matches(Regex("[0-9A-F]+"))) {
-            "UDS-Hexdaten ungültig (1–64 Bytes)"
-        }
         require(output != null) { "Keine aktive SPP-Verbindung" }
         require(bitrate == 500 || bitrate == 250) { "Nur 250/500 kbit/s unterstützt" }
         // ELM automatic CAN formatting; the ECU request is ISO-TP payload (not CAN framing bytes).
@@ -98,6 +100,14 @@ class ClassicAdapterProbe(private val context: Context) : Closeable {
         setup.forEach { cmd ->
             val reply = writeAndRead(cmd, timeoutMs)
             if (reply.contains("?")) error("Adapter lehnt $cmd ab: $reply")
+        }
+    }
+
+    /** Transmit payload in the existing diagnostic session. The caller must own authorization. */
+    @Synchronized fun sendUdsPayload(request: String, timeoutMs: Long = 3500): String {
+        val cleanRequest = request.replace(" ", "").uppercase()
+        require(cleanRequest.length in 2..128 && cleanRequest.length % 2 == 0 && cleanRequest.matches(Regex("[0-9A-F]+"))) {
+            "UDS-Hexdaten ungültig (1–64 Bytes)"
         }
         return writeAndRead(cleanRequest, timeoutMs)
     }
