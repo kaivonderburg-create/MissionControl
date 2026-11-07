@@ -45,11 +45,11 @@ class ClassicAdapterProbe(private val context: Context) : Closeable {
     }
 
     /** AT commands are adapter-local. Never issue UDS frames through this method. */
-    @Synchronized fun probeElm(): String {
+    @Synchronized fun probeElm(timeoutMs: Long = 2500): String {
         val out = output ?: return "Keine SPP-Verbindung"
         out.write("ATI\r".toByteArray(Charsets.US_ASCII)); out.flush()
         val stream = input ?: return "Keine Antwort"
-        val deadline = System.currentTimeMillis() + 2500
+        val deadline = System.currentTimeMillis() + timeoutMs.coerceIn(500, 10000)
         val response = StringBuilder()
         while (System.currentTimeMillis() < deadline && response.length < 1024) {
             val available = stream.available()
