@@ -206,6 +206,7 @@ class MainActivity : Activity() {
                                     runOnUiThread { result.text = reply }
                                 }.start()
                             })
+                            content.addView(button("BLE-UDS-DIAGNOSE / SERVICE") { showBleUdsConsole(device) })
                             content.addView(button("BLE TRENNEN") { bleElm.close(); showBleScan() })
                         })
                         content.addView(entry)
@@ -467,5 +468,43 @@ class MainActivity : Activity() {
         content.addView(box)
         addPanel("Antworten interpretieren", "7F = negative UDS-Antwort; 50/51/54/59/62 = mögliche positive Antworten der zugehörigen Dienste. 'NO DATA', 'CAN ERROR' oder Timeout bedeuten nicht automatisch, dass die OCU defekt ist. Prüfe zuerst Adaptertransport, Anfrage-ID, Antwortadressierung und Sessionberechtigung.")
         content.addView(button("DEBUG-PROTOKOLL") { showDebug() })
+    }
+
+    private fun showBleUdsConsole(device: BluetoothDevice) {
+        begin("BLE-UDS · ECU 75")
+        addPanel("ELM über BLE", "Funktioniert mit transparenten UART-GATT-Adaptern, die ELM327-ASCII verstehen. Die BLE-Schnittstelle muss zuerst verbunden sein. Die ECU-CAN-Anfrage-ID muss korrekt bestimmt werden; '75' allein genügt nicht.")
+        val card = panel()
+        card.addView(label("CAN-Anfrage-ID (Hex)", 16f, foreground, true))
+        val header = EditText(this).apply { setText(preferences.getString("uds_can_header", "") ?: ""); setTextColor(this@MainActivity.foreground); hint = "3 oder 8 Hex-Zeichen" }
+        card.addView(header)
+        card.addView(label("UDS-Befehl (Hex)", 16f, foreground, true))
+        val request = EditText(this).apply { setText("22F190"); setTextColor(this@MainActivity.foreground) }
+        card.addView(request)
+        val outcome = label("Noch keine UDS-Antwort.", 13f, muted)
+        card.addView(outcome)
+        card.addView(button("UDS-BEFEHL SENDEN") {
+            val target = header.text.toString().trim().uppercase()
+            val payload = request.text.toString().replace(" ", "").uppercase()
+            if (!target.matches(Regex("[0-9A-F]{3}|[0-9A-F]{8}")) || !payload.matches(Regex("(?:[0-9A-F]{2}){1,64}"))) {
+                outcome.text = "Ungültige CAN-ID oder UDS-Daten."; return@button
+            }
+            val run = {
+                preferences.edit().putString("uds_can_header", target).apply()
+                outcome.text = "Sende $payload …"
+                Thread {
+                    val reply = try { bleElm.udsRequest(target, payload, 500, preferences.getInt("timeout_ms", 3500).toLong()) }
+                        catch (e: Exception) { "BLE UDS Fehler: ${e.message}" }
+                    sessionLog.add("BLE UDS $target / $payload: $reply")
+                    runOnUiThread { outcome.text = reply }
+                }.start()
+            }
+            val read = payload.startsWith("22") || payload.startsWith("19") || payload.startsWith("3E")
+            if (read) run()
+            else android.app.AlertDialog.Builder(this).setTitle("Ändernde UDS-Anfrage")
+                .setMessage("Befehl $payload an $target über BLE senden? Das Steuergerät kann dadurch verändert oder neu gestartet werden. Nur bei sicher bestätigter Adressierung und VW-Prüfanweisung fortfahren.")
+                .setNegativeButton("Abbrechen", null).setPositiveButton("SENDEN") { _, _ -> run() }.show()
+        })
+        content.addView(card)
+        addPanel("Verbindung zurücksetzen", "Wenn der Adapter keine ELM-Antwort liefert, zurück zur BLE-Gerätesuche und das tatsächlich ausgewählte GATT-Profil im Debug-Protokoll prüfen.", "BLE-VERBINDUNG TRENNEN" to { bleElm.close(); showBleScan() })
     }
 }
