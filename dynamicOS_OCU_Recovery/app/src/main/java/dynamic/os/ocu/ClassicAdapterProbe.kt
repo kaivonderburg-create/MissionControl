@@ -49,10 +49,13 @@ class ClassicAdapterProbe(private val context: Context) : Closeable {
 
     /** Whitelisted ELM interface metadata only; no OBD/CAN/UDS frames are transmitted. */
     @Synchronized fun adapterCommand(command: String, timeoutMs: Long = 2500): String {
-        require(command in setOf("ATI", "AT@1", "ATDP", "ATDPN", "ATRV", "ATIGN", "ATIGN?")) { "Nicht freigegebener Adapterbefehl" }
+        require(command in setOf("ATI", "AT@1", "ATDP", "ATDPN", "ATRV", "ATIGN", "ATIGN?", "ATE0", "ATL0", "ATS0", "ATH1", "ATSP0", "ATSP6", "ATCAF1", "0100", "010C", "010D", "0902")) { "Nicht freigegebener Diagnosebefehl" }
         val out = output ?: return "Keine SPP-Verbindung"
-        out.write("$command\r".toByteArray(Charsets.US_ASCII)); out.flush()
+        // Old unread response bytes must not be misattributed to the next command.
         val stream = input ?: return "Keine Antwort"
+        var discarded = 0
+        while (stream.available() > 0 && discarded < 2048) { stream.read(); discarded++ }
+        out.write("$command\r".toByteArray(Charsets.US_ASCII)); out.flush()
         val deadline = System.currentTimeMillis() + timeoutMs.coerceIn(500, 10000)
         val response = StringBuilder()
         while (System.currentTimeMillis() < deadline && response.length < 1024) {
@@ -63,6 +66,47 @@ class ClassicAdapterProbe(private val context: Context) : Closeable {
             } else Thread.sleep(35)
         }
         return response.toString().ifBlank { "Keine ELM-Antwort erhalten. Der EVO nutzt möglicherweise BLE oder ein proprietäres Protokoll." }
+    }
+
+    /** Executable ELM327 generic OBD-II readout; requests only standard read-only PIDs. */
+    @Synchronized fun genericObdReadout(timeoutMs: Long = 2500): String {
+        return listOf("ATE0", "ATL0", "ATS0", "ATSP0", "ATI", "ATRV", "ATDP", "0100", "010C", "010D", "0902")
+            .joinToString("\n\n") { cmd ->
+                val reply = try { adapterCommand(cmd, timeoutMs) } catch (e: Exception) { "Fehler: ${e.message}" }
+                "$cmd\n$reply"
+            }
+    }
+
+    /** Explicit, user-configured ISO-TP/UDS session. No guessed VW CAN identifiers. */
+    @Synchronized fun udsRequest(header: String, request: String, timeoutMs: Long = 3500): String {
+        val cleanHeader = header.trim().uppercase()
+        require(cleanHeader.matches(Regex("[0-9A-F]{3}|[0-9A-F]{8}"))) { "CAN-Header muss 3 oder 8 Hex-Zeichen enthalten" }
+        val cleanRequest = request.replace(" ", "").uppercase()
+        require(cleanRequest in setOf("22F190", "22F187", "22F188", "1902FF", "1901FF", "1101", "1103", "14FFFFFF")) { "UDS-Dienst nicht freigegeben" }
+        require(output != null) { "Keine aktive SPP-Verbindung" }
+        // ELM automatic CAN formatting; the ECU request is ISO-TP payload (not CAN framing bytes).
+        val setup = listOf("ATE0", "ATL0", "ATS0", "ATH1", if (cleanHeader.length == 8) "ATSP7" else "ATSP6", "ATCAF1", "ATSH$cleanHeader")
+        setup.forEach { cmd ->
+            val reply = writeAndRead(cmd, timeoutMs)
+            if (reply.contains("?")) error("Adapter lehnt $cmd ab: $reply")
+        }
+        return writeAndRead(cleanRequest, timeoutMs)
+    }
+
+    @Synchronized private fun writeAndRead(command: String, timeoutMs: Long): String {
+        val out = output ?: error("Nicht verbunden")
+        val stream = input ?: error("Kein Empfang")
+        while (stream.available() > 0) stream.read()
+        out.write("$command\r".toByteArray(Charsets.US_ASCII)); out.flush()
+        val deadline = System.currentTimeMillis() + timeoutMs.coerceIn(500, 15000)
+        val response = StringBuilder()
+        while (System.currentTimeMillis() < deadline && response.length < 4096) {
+            if (stream.available() > 0) {
+                response.append(stream.read().toChar())
+                if (response.contains('>')) break
+            } else Thread.sleep(20)
+        }
+        return response.toString().ifBlank { "TIMEOUT" }
     }
 
     @Synchronized fun adapterSelfTest(timeoutMs: Long = 2500): String {
