@@ -101,6 +101,7 @@ class MainActivity : Activity() {
         addPanel("◉  Adapter verbinden", "Carista EVO über Bluetooth prüfen. Zunächst wird nur die Adapteridentifikation angefordert.", "VERBINDUNG PRÜFEN" to { showAdapter() })
         addPanel("▤  Diagnose & Operationen", "Alle verfügbaren Dienste mit Freigabe-, Risiko- und Implementierungsstatus.", "OPERATIONEN ANSEHEN" to { showCatalog() })
         addPanel("✦  Geführte Wiederherstellung", "Sicherer Prüfpfad für B200049. Keine ungeprüften Änderungen am Notrufsystem.", "RECOVERY ÖFFNEN" to { showRecovery() })
+        addPanel("◈  OCU-Serviceakte", "Modulkennungen, LED-Status und Herstellervorgaben zu B200049 mit Diagnoseprotokoll abgleichen.", "SERVICEAKTE ÖFFNEN" to { showServiceRecord() })
         addPanel("⚙  Werkzeuge & Konfiguration", "Adapterpräferenzen, Zeitlimits, Debug-Protokolle und Export.", "EINSTELLUNGEN" to { showSettings() })
         addPanel("Vorabcheck", "OCU vollständig eingebaut; Steckverbindungen, Versorgung und Batterie prüfen. Ohne nachweislich intakte SOS-Funktion ist die Warnung sicherheitsrelevant.")
     }
@@ -127,6 +128,19 @@ class MainActivity : Activity() {
                 Thread {
                     val result = try { probe.connect(device) + "\n\nATI:\n" + probe.probeElm(preferences.getInt("timeout_ms", 2500).toLong()) } catch (e: Exception) { "SPP nicht erreichbar: ${e.javaClass.simpleName}: ${e.message}" }
                     sessionLog.add("SPP-Test $name: $result")
+                    runOnUiThread { status.text = result }
+                }.start()
+            })
+            addPanel("ELM-Adapter-Selbsttest · $name", "Liest ausschließlich Adapteridentität, Protokollmodus und Adapter-Versorgungsspannung (ATI, AT@1, ATDP, ATDPN, ATRV). Kein Steuergerätebefehl.", "SELBSTTEST STARTEN" to {
+                begin("Adapter-Selbsttest")
+                content.addView(button("← Adapter") { probe.close(); showAdapter() })
+                val status = label("Verbinde und frage Adapterdaten ab …", 13f, muted)
+                content.addView(status)
+                Thread {
+                    val result = try {
+                        probe.connect(device) + "\n\n" + probe.adapterSelfTest(preferences.getInt("timeout_ms", 2500).toLong())
+                    } catch (e: Exception) { "Selbsttest fehlgeschlagen: ${e.javaClass.simpleName}: ${e.message}" }
+                    sessionLog.add("ELM-Selbsttest $name: $result")
                     runOnUiThread { status.text = result }
                 }.start()
             })
@@ -217,6 +231,7 @@ class MainActivity : Activity() {
     }
     private fun showRecovery() {
         begin("B200049 · Recovery")
+        addPanel("VW-Prüfvorgaben", "Bei statischem B200049 kann die Ursache je nach OCU-Variante Hardware, insbesondere die integrierte Backup-Antenne, sein. Ein bloßes Löschen der Ereignishistorie gilt nicht als Nachweis einer Reparatur.\n\nDie beschriebenen VW-TPI-Verfahren sind teils auf andere Teilefamilien beschränkt. Vor Anwendung muss die Zuordnung zum 2GA 035 284 A eindeutig bestätigt werden.", "SERVICEAKTE & TPI-ABGLEICH" to { showServiceRecord() })
         addPanel("Manueller Prüfablauf", "Hake einen Schritt nur ab, wenn du ihn tatsächlich durchgeführt und dokumentiert hast. Diese Checkliste sendet keine Befehle an das Fahrzeug.")
         val steps = listOf(
             "Diagnose sichern" to "Steuergerät 75, DTC-Status und Umgebungsbedingungen auslesen und dokumentieren.",
@@ -235,5 +250,48 @@ class MainActivity : Activity() {
             p.addView(check); p.addView(label(step.second, 13f, muted)); content.addView(p)
         }
         content.addView(button("DEBUG-PROTOKOLL ÖFFNEN") { showDebug() })
+    }
+
+    private fun showServiceRecord() {
+        begin("OCU-Serviceakte")
+        addPanel("Modulidentifikation", "Fahrzeug: VW T-Cross R-Line MJ 2025\nDiagnoseadresse: 0075 · J949\nBekannt: 2GA 035 284 A · H11 · SW 0619\nBeanstandung: B200049 nach zeitweiliger Trennung der OCU bei eingeschalteter Fahrzeugdiagnose/Start.\n\nAngaben bitte anhand eines neuen Steuergeräte-Scans bestätigen.")
+        addPanel("TPI-Abgleich · B200049", "VW TPI 2070694/6 und 2072798/2 beschreiben für bestimmte J949-Varianten eine Prüfung der integrierten Backup-Antenne und anschließend geführte Fehlersuche. Die Teilefamilie 5WA ist nicht automatisch identisch mit deinem 2GA-Modul.\n\nOriginalablauf: DTC-Umgebungsdaten sichern → ODIS Geführte Fehlersuche → Reparaturvorschlag nach Steuergerätekennung → Anpassung/Inbetriebnahme → erneutes Auslesen → SOS-Status prüfen.")
+        addPanel("Wiederanlauf / Initialisierung", "Das abgeklemmt gestartete Modul ist inzwischen wieder eingebaut. Ein kontrollierter Spannungsreset, ODIS-Neustart oder die OCU-Aktivierung darf erst nach der zu diesem Steuergerät passenden VW-Anweisung erfolgen. Die App sendet hier bewusst keine vermuteten UDS-Routine-IDs, SFD-Entsperrungen oder Werkseinstellungsbefehle.")
+        val p = panel()
+        p.addView(label("Mess- und Sichtprüfung dokumentieren", 18f, foreground, true))
+        val fields = listOf(
+            "scan" to "DTC-Status / Fehlertext / Freeze Frame",
+            "led" to "SOS-LED (rot, grün, aus, blinkend)",
+            "battery" to "OCU-Backupbatterie / gemessener Zustand",
+            "antenna" to "Antennen / Stecker / Deckel geprüft",
+            "version" to "Abweichende Hardware-/Softwarekennung",
+            "notes" to "Weitere Werkstatt- oder Diagnosenotizen"
+        )
+        val edits = mutableListOf<Pair<String, EditText>>()
+        fields.forEach { (key, caption) ->
+            p.addView(label(caption, 13f, muted, true))
+            val field = EditText(this).apply {
+                setSingleLine(false); minLines = if (key == "notes") 3 else 1
+                setText(preferences.getString("ocu_$key", "") ?: "")
+                setTextColor(this@MainActivity.foreground)
+                setHintTextColor(this@MainActivity.muted)
+                hint = "Hier dokumentieren"
+            }
+            edits.add(key to field); p.addView(field)
+        }
+        p.addView(button("SERVICEAKTE SPEICHERN") {
+            val editor = preferences.edit()
+            edits.forEach { (key, field) -> editor.putString("ocu_$key", field.text.toString()) }
+            editor.apply()
+            sessionLog.add("OCU-Serviceakte aktualisiert: " + edits.joinToString(" | ") { "${it.first}=${it.second.text}" })
+            Toast.makeText(this, "Serviceakte gespeichert", Toast.LENGTH_SHORT).show()
+        })
+        content.addView(p)
+        addPanel("Servicebericht exportieren", "Aus der ausgefüllten Serviceakte, den bekannten VW-TPI-Hinweisen und dem Debug-Protokoll entsteht eine lokale Textdatei für die weitere Fehlersuche.", "BERICHT EXPORTIEREN" to {
+            val notes = fields.joinToString("\n") { (key, caption) -> "$caption: ${preferences.getString("ocu_$key", "")}" }
+            pendingExport = "dynamicOS OCU – Servicebericht\nVW T-Cross 2025 / J949 / 0075\n2GA 035 284 A H11 SW 0619\nDTC B200049\n\n$notes\n\nDiagnoseprotokoll:\n${sessionLog.text()}"
+            val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply { addCategory(Intent.CATEGORY_OPENABLE); type = "text/plain"; putExtra(Intent.EXTRA_TITLE, "dynamicOS_OCU_Servicebericht.txt") }
+            startActivityForResult(intent, 200)
+        })
     }
 }
