@@ -36,11 +36,21 @@ class BleElmTransport(private val context: Context, private val log: (String) ->
             override fun onServicesDiscovered(g: BluetoothGatt, status: Int) {
                 if (status != 0) { onReady("Service-Entdeckung fehlgeschlagen: $status"); return }
                 val service = g.getService(nusService)
-                val writable = service?.getCharacteristic(nusRx)
-                val notifier = service?.getCharacteristic(nusTx)
+                var writable = service?.getCharacteristic(nusRx)
+                var notifier = service?.getCharacteristic(nusTx)
+                var profile = "Nordic UART"
+                if (writable == null || notifier == null) {
+                    // Generic transparent UART profile: select matching write + notify properties.
+                    val candidate = g.services.asSequence().filterNot { it.uuid.toString().startsWith("000018") }.mapNotNull { svc ->
+                        val tx = svc.characteristics.firstOrNull { it.properties and (BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE) != 0 }
+                        val rx = svc.characteristics.firstOrNull { it.properties and (BluetoothGattCharacteristic.PROPERTY_NOTIFY or BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0 }
+                        if (tx != null && rx != null) Triple(svc.uuid, tx, rx) else null
+                    }.firstOrNull()
+                    if (candidate != null) { writable = candidate.second; notifier = candidate.third; profile = "Generic UART ${candidate.first}" }
+                }
                 if (writable == null || notifier == null) {
                     val uuids = g.services.joinToString("; ") { it.uuid.toString() }
-                    onReady("Kein Nordic-UART-Profil (NUS) gefunden. GATT: $uuids")
+                    onReady("Kein geeignetes UART-GATT-Profil gefunden. GATT: $uuids")
                     return
                 }
                 writeChar = writable
@@ -50,7 +60,7 @@ class BleElmTransport(private val context: Context, private val log: (String) ->
                     else { @Suppress("DEPRECATION") descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE; @Suppress("DEPRECATION") g.writeDescriptor(descriptor) }
                 }
                 synchronized(lock) { ready = true; lock.notifyAll() }
-                onReady("BLE-NUS UART verbunden. ELM-Befehle möglich.")
+                onReady("BLE $profile verbunden: TX=${writable.uuid}, RX=${notifier.uuid}. ELM-ASCII-Test möglich.")
             }
             override fun onCharacteristicChanged(g: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
                 @Suppress("DEPRECATION") val bytes = characteristic.value ?: return
@@ -66,7 +76,7 @@ class BleElmTransport(private val context: Context, private val log: (String) ->
 
     @SuppressLint("MissingPermission")
     fun command(command: String, timeoutMs: Long = 3500): String {
-        require(command in setOf("ATI", "AT@1", "ATRV", "ATDP", "ATDPN", "0100", "0902")) { "Nicht freigegebener BLE-Befehl" }
+        require(command.matches(Regex("AT[A-Z0-9@?]{1,20}")) || (command.length in 2..128 && command.length % 2 == 0 && command.matches(Regex("[0-9A-F]+")))) { "Ungültiger BLE-ELM-Befehl" }
         val active = gatt ?: return "BLE nicht verbunden"
         val characteristic = writeChar ?: return "Keine UART-Schreibcharakteristik"
         synchronized(lock) { response.clear() }
@@ -87,6 +97,20 @@ class BleElmTransport(private val context: Context, private val log: (String) ->
             log("BLE ELM $command: $text")
             return text
         }
+    }
+
+    /** Read or write a configured UDS service through BLE ELM ASCII when UART is ELM-compatible. */
+    fun udsRequest(header: String, payload: String, bitrate: Int, timeoutMs: Long): String {
+        val normalizedHeader = header.trim().uppercase()
+        require(normalizedHeader.matches(Regex("[0-9A-F]{3}|[0-9A-F]{8}"))) { "Ungültige CAN-Anfrage-ID" }
+        val normalizedPayload = payload.replace(" ", "").uppercase()
+        require(normalizedPayload.length in 2..128 && normalizedPayload.length % 2 == 0 && normalizedPayload.matches(Regex("[0-9A-F]+"))) { "Ungültige UDS-Nutzdaten" }
+        val protocol = when { normalizedHeader.length == 8 && bitrate == 500 -> "ATSP7"; normalizedHeader.length == 8 -> "ATSP9"; bitrate == 500 -> "ATSP6"; else -> "ATSP8" }
+        for (setup in listOf("ATE0", "ATL0", "ATS0", "ATH1", protocol, "ATCAF1", "ATSH$normalizedHeader")) {
+            val result = command(setup, timeoutMs)
+            if (result.contains("?") || result == "TIMEOUT") return "Adapter-Setup $setup fehlgeschlagen: $result"
+        }
+        return command(normalizedPayload, timeoutMs)
     }
 
     @SuppressLint("MissingPermission")
