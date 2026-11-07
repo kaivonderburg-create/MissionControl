@@ -104,6 +104,8 @@ class MainActivity : Activity() {
         addPanel("✦  Geführte Wiederherstellung", "Sicherer Prüfpfad für B200049. Keine ungeprüften Änderungen am Notrufsystem.", "RECOVERY ÖFFNEN" to { showRecovery() })
         addPanel("◈  OCU-Serviceakte", "Modulkennungen, LED-Status und Herstellervorgaben zu B200049 mit Diagnoseprotokoll abgleichen.", "SERVICEAKTE ÖFFNEN" to { showServiceRecord() })
         addPanel("VW Online · Original-App", "Volkswagen-ID und Online-Fahrzeugstatus über die originale VW-App prüfen. Keine fremden Sitzungen oder Tokens auslesen.", "VW-APP ÖFFNEN" to { openVolkswagenApp() })
+        addPanel("SFD2 · Berechtigungsstatus", "OBDeleven- und VW-Autorisierung, erforderliche Prüfschritte und offizielle Freigabemöglichkeiten.", "SFD2-CENTER" to { showSfdCenter() })
+        addPanel("Car Scanner · MQB-Profile", "Vorhandene VAG-Profile und ECU-Messwerte mit unserer Serviceakte abgleichen. Die signierten internen Profile werden nicht in dynamicOS kopiert.", "CAR SCANNER ÖFFNEN" to { launchExternalApp("com.ovz.carscanner", "Car Scanner") })
         addPanel("⚙  Werkzeuge & Konfiguration", "Adapterpräferenzen, Zeitlimits, Debug-Protokolle und Export.", "EINSTELLUNGEN" to { showSettings() })
         addPanel("Vorabcheck", "OCU vollständig eingebaut; Steckverbindungen, Versorgung und Batterie prüfen. Ohne nachweislich intakte SOS-Funktion ist die Warnung sicherheitsrelevant.")
     }
@@ -340,6 +342,23 @@ class MainActivity : Activity() {
         } else {
             Toast.makeText(this, "Volkswagen-App nicht installiert oder nicht verfügbar", Toast.LENGTH_LONG).show()
         }
+    }
+    private fun showSfdCenter() {
+        begin("SFD2 · Access Center")
+        addPanel("Authentifizierter Zugang", "OBDeleven 0.107.1 enthält SFD2-Freigabefunktionen und ruft Token serverseitig ab. Das Steuergerät prüft die signierte Freigabe. Eine lokal kopierte APK, ein beliebiger Token oder der VW-App-Login allein schaffen keine Berechtigung.")
+        addPanel("Voraussetzungen", "1. Fahrzeugidentität und ECU-Kennung feststellen.\n2. Verbindungsprofil und ECU-Anfrage-ID bestimmen.\n3. Wenn vom Diagnosesystem verlangt: Motorhaube öffnen (SFD2-Plausibilisierung).\n4. Über einen autorisierten Anbieter SFD2-Freigabe anfordern.\n5. Autorisierte Nachricht in derselben Diagnosesitzung verwenden.\n6. Status erneut lesen und dokumentieren.")
+        addPanel("OBDeleven öffnen", "Wenn OBDeleven eine SFD2-Freigabe für dein Fahrzeug tatsächlich anbietet, erfolgt die Autorisierung innerhalb dieser App. Unsere Software kann den signierten Token nicht unabhängig davon erzeugen oder aus deren geschützter Sitzung übernehmen.", "OFFIZIELLE OBDELEVEN-APP STARTEN" to { openObdelevenApp() })
+        addPanel("Diagnose ohne Freigabe", "Die UDS-Konsole kann weiterhin Antwortcodes, Steuergerätekennungen und freigegebene lesende Dienste prüfen. Ein geschützter Schreibdienst kann mit 7F ... 33 (Security Access Denied) antworten. Bei SFD2 können zusätzlich herstellerseitig signierte Änderungsnachrichten erforderlich sein.", "UDS-ADAPTER AUSWÄHLEN" to { showAdapter() })
+    }
+    private fun openObdelevenApp() {
+        launchExternalApp("com.voltasit.obdeleven", "OBDeleven")
+    }
+    private fun launchExternalApp(packageName: String, appName: String) {
+        val launch = packageManager.getLaunchIntentForPackage(packageName)
+        if (launch != null) {
+            try { startActivity(launch); sessionLog.add("$appName geöffnet") }
+            catch (e: Exception) { Toast.makeText(this, "$appName konnte nicht gestartet werden: ${e.message}", Toast.LENGTH_LONG).show() }
+        } else Toast.makeText(this, "$appName nicht installiert oder nicht verfügbar", Toast.LENGTH_LONG).show()
     }
 
     private fun showUdsConsole(device: BluetoothDevice) {
