@@ -7,6 +7,7 @@
         <package android:name="com.volkswagen.weconnect"/>
         <package android:name="com.voltasit.obdeleven"/>
         <package android:name="com.ovz.carscanner"/>
+        <package android:name="com.prizmos.carista"/>
     </queries>
     <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="dynamicOS OCU Recovery" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:usesCleartextTraffic="false">
         <activity android:name=".MainActivity" android:exported="true"><intent-filter>
