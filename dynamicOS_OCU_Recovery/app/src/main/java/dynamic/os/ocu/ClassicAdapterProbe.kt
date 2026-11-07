@@ -82,11 +82,9 @@ class ClassicAdapterProbe(private val context: Context) : Closeable {
         val cleanHeader = header.trim().uppercase()
         require(cleanHeader.matches(Regex("[0-9A-F]{3}|[0-9A-F]{8}"))) { "CAN-Header muss 3 oder 8 Hex-Zeichen enthalten" }
         val cleanRequest = request.replace(" ", "").uppercase()
-        require(cleanRequest in setOf(
-            "1001", "1003", "3E00",
-            "22F190", "22F187", "22F188", "22F18A", "22F18C", "22F192", "22F193", "22F194", "22F195",
-            "1902FF", "1901FF", "190A", "1101", "1103", "14FFFFFF"
-        )) { "UDS-Dienst nicht freigegeben" }
+        require(cleanRequest.length in 2..128 && cleanRequest.length % 2 == 0 && cleanRequest.matches(Regex("[0-9A-F]+"))) {
+            "UDS-Hexdaten ungültig (1–64 Bytes)"
+        }
         require(output != null) { "Keine aktive SPP-Verbindung" }
         require(bitrate == 500 || bitrate == 250) { "Nur 250/500 kbit/s unterstützt" }
         // ELM automatic CAN formatting; the ECU request is ISO-TP payload (not CAN framing bytes).
