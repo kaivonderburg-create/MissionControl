@@ -36,7 +36,7 @@ class MainActivity : Activity() {
         this.text = text; isAllCaps = false; setOnClickListener { action() }
     }
     private fun begin(title: String) {
-        val scroll = ScrollView(this).apply { setBackgroundColor(dark); fillViewport = true }
+        val scroll = ScrollView(this).apply { setBackgroundColor(dark); isFillViewport = true }
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 28, 24, 32) }
         scroll.addView(content); setContentView(scroll)
         content.addView(label("dynamicOS  /  DIAGNOSTICS", 13f, Color.rgb(104, 195, 246), true))
