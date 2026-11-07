@@ -72,7 +72,7 @@ class MainActivity : Activity() {
         })
         val brandText = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(10), 0, 0, 0) }
         brandText.addView(label("dynamicOS", 22f, foreground, true))
-        brandText.addView(label("OCU CONTROL CENTER  ·  2026", 10f, cyan, true))
+        brandText.addView(label("VAG ENGINEERING  ·  2026", 10f, cyan, true))
         brand.addView(brandText)
         content.addView(brand)
         content.addView(label(title, 30f, foreground, true))
@@ -84,7 +84,7 @@ class MainActivity : Activity() {
         }
         val entries = listOf(Triple("⌂", "Übersicht", { showHome() }), Triple("◉", "Adapter", { showAdapter() }), Triple("▤", "Operationen", { showCatalog() }), Triple("✦", "Recovery", { showRecovery() }))
         entries.forEach { (symbol, name, action) ->
-            val active = selected.contains(name, true) || (name == "Übersicht" && selected == "OCU Recovery") || (name == "Recovery" && selected.contains("B200049"))
+            val active = selected.contains(name, true) || (name == "Übersicht" && selected == "VAG All-in-One") || (name == "Recovery" && selected.contains("B200049"))
             val item = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(0, dp(5), 0, dp(5)); setOnClickListener { action() } }
             item.addView(label(symbol, 23f, if (active) cyan else muted, true).apply { gravity = Gravity.CENTER })
             item.addView(label(name, 10f, if (active) cyan else muted, active).apply { gravity = Gravity.CENTER })
@@ -97,9 +97,11 @@ class MainActivity : Activity() {
         action?.let { p.addView(button(it.first, it.second)) }; content.addView(p)
     }
     private fun showHome() {
-        begin("OCU Recovery")
+        begin("VAG All-in-One")
+        addPanel("dynamicOS · VAG ENGINEERING", "Ein Diagnosekern für MQB-Fahrzeuge: ELM327, Bluetooth Classic/BLE, ISO-TP, UDS, Steuergeräteidentifikation, DTC, Engineering-Konsole und SFD/SFD2-Berechtigungsstatus. Funktionen werden anhand echter ECU-Antworten beurteilt.")
         addPanel("●  SYSTEMSTATUS  /  DIAGNOSE", "VW T-Cross R-Line 2025\nSteuergerät 75  ·  J949\nLG 2GA 035 284 A  |  H11 / SW 0619\n\nB200049  –  Interner Elektronikfehler")
         addPanel("◉  Adapter verbinden", "Carista EVO über Bluetooth prüfen. Zunächst wird nur die Adapteridentifikation angefordert.", "VERBINDUNG PRÜFEN" to { showAdapter() })
+        addPanel("▣  VAG ECU-Verifikation", "Sieben aufeinanderfolgende UDS-Testabfragen mit realen Steuergeräteantworten, Laufzeiten und Ergebnisprotokoll. Erfordert die korrekte CAN-Anfrage-ID.", "ECU-TEST ÖFFNEN" to { showAdapter() })
         addPanel("▤  Diagnose & Operationen", "Alle verfügbaren Dienste mit Freigabe-, Risiko- und Implementierungsstatus.", "OPERATIONEN ANSEHEN" to { showCatalog() })
         addPanel("✦  Geführte Wiederherstellung", "Sicherer Prüfpfad für B200049. Keine ungeprüften Änderungen am Notrufsystem.", "RECOVERY ÖFFNEN" to { showRecovery() })
         addPanel("◈  OCU-Serviceakte", "Modulkennungen, LED-Status und Herstellervorgaben zu B200049 mit Diagnoseprotokoll abgleichen.", "SERVICEAKTE ÖFFNEN" to { showServiceRecord() })
@@ -151,6 +153,7 @@ class MainActivity : Activity() {
             })
             addPanel("UDS-Servicekonsole · $name", "Direkte ISO-TP-Diagnose mit manuell gewähltem CAN-Anfrageheader. Unterstützt Identifikation, DTC-Abfrage, Reset und bestätigtes DTC-Löschen.", "UDS-KONSOLE ÖFFNEN" to { showUdsConsole(device) })
             addPanel("SFD2-Autorisierung · $name", "Eine zusammenhängende Diagnosesitzung für Aktivierungsdaten und autorisiert erhaltene Tokenantworten. Keine Token-Erzeugung oder Zugangsumgehung.", "SFD2-TERMINAL" to { showSfdTerminal(device) })
+            addPanel("VAG ECU-Benchmark · $name", "Automatische Identifikations- und DTC-Abfragen. Misst Antwortzeiten und unterscheidet positive, negative und fehlende Antworten. Keine Codierung oder Löschung.", "ECU-TEST STARTEN" to { showVagBenchmark(device) })
             addPanel("OBD-II Basisdiagnose · $name", "Echte generische OBD-II-Leseabfragen: VIN, verfügbare PIDs, Drehzahl, Geschwindigkeit, Spannung. Keine DTC-Löschung.", "OBD-TEST STARTEN" to {
                 begin("OBD-II Lesediagnose")
                 val result = label("Verbinde …", 13f, muted)
@@ -217,6 +220,31 @@ class MainActivity : Activity() {
             }
         } catch (e: SecurityException) { info.text = "Bluetooth-Berechtigungen fehlen. Bitte im Adaptermenü freigeben." }
         catch (e: Exception) { info.text = "BLE nicht verfügbar: ${e.message}" }
+    }
+    private fun showVagBenchmark(device: BluetoothDevice) {
+        begin("VAG ECU-Verifikation")
+        addPanel("Voraussetzung", "Eine konkrete physikalische CAN-Anfrage-ID muss eingetragen sein. Die VAG-Adresse 75 / J949 ist keine CAN-ID. Die Tests senden Standard-UDS-Leseanforderungen und starten die Standardsitzung; sie führen keine Codierungen oder Resets aus.")
+        val p = panel()
+        p.addView(label("CAN-Anfrage-ID (3/8 Hex-Zeichen)", 15f, foreground, true))
+        val header = EditText(this).apply { setText(preferences.getString("uds_can_header", "") ?: ""); setTextColor(this@MainActivity.foreground); hint = "CAN-ID aus Diagnosemitschnitt" }
+        p.addView(header)
+        val status = label("Bereit zur Messung", 13f, muted)
+        p.addView(status)
+        p.addView(button("DIAGNOSELAUF STARTEN") {
+            val id = header.text.toString().uppercase().trim()
+            if (!id.matches(Regex("[0-9A-F]{3}|[0-9A-F]{8}"))) { status.text = "Bitte die gültige CAN-Anfrage-ID eintragen"; return@button }
+            preferences.edit().putString("uds_can_header", id).apply()
+            status.text = "ECU-Kommunikation läuft …"
+            Thread {
+                val report = VagDiagnosticBenchmark(probe).run(device, id, if (preferences.getInt("uds_bitrate", 0) == 0) 500 else 250, preferences.getInt("timeout_ms", 3500).toLong()) { line ->
+                    runOnUiThread { status.append("\n" + line.substringBefore("\n")) }
+                }
+                sessionLog.add(report)
+                runOnUiThread { status.text = report }
+            }.start()
+        })
+        content.addView(p)
+        addPanel("Protokoll sichern", "Der vollständige Ablauf mit ECU-Rohantworten und Antwortzeiten wird im Debug-Protokoll gespeichert und kann als TXT exportiert werden.", "DEBUG / EXPORT" to { showDebug() })
     }
     private fun showDebug() {
         begin("Debug & Protokolle")
