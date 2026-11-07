@@ -2,6 +2,11 @@ name: Android Debug APK
 on:
   push:
     branches: [dynamicOS-ocu-recovery]
+  pull_request:
+    branches: [master]
+    paths:
+      - 'dynamicOS_OCU_Recovery/**'
+      - '.github/workflows/dynamicOS-ocu-android.yml'
   workflow_dispatch:
 jobs:
   assemble:
