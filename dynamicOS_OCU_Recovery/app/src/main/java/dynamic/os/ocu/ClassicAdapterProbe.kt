@@ -45,9 +45,13 @@ class ClassicAdapterProbe(private val context: Context) : Closeable {
     }
 
     /** AT commands are adapter-local. Never issue UDS frames through this method. */
-    @Synchronized fun probeElm(timeoutMs: Long = 2500): String {
+    @Synchronized fun probeElm(timeoutMs: Long = 2500): String = adapterCommand("ATI", timeoutMs)
+
+    /** Whitelisted ELM interface metadata only; no OBD/CAN/UDS frames are transmitted. */
+    @Synchronized fun adapterCommand(command: String, timeoutMs: Long = 2500): String {
+        require(command in setOf("ATI", "AT@1", "ATDP", "ATDPN", "ATRV", "ATIGN", "ATIGN?")) { "Nicht freigegebener Adapterbefehl" }
         val out = output ?: return "Keine SPP-Verbindung"
-        out.write("ATI\r".toByteArray(Charsets.US_ASCII)); out.flush()
+        out.write("$command\r".toByteArray(Charsets.US_ASCII)); out.flush()
         val stream = input ?: return "Keine Antwort"
         val deadline = System.currentTimeMillis() + timeoutMs.coerceIn(500, 10000)
         val response = StringBuilder()
@@ -59,6 +63,13 @@ class ClassicAdapterProbe(private val context: Context) : Closeable {
             } else Thread.sleep(35)
         }
         return response.toString().ifBlank { "Keine ELM-Antwort erhalten. Der EVO nutzt möglicherweise BLE oder ein proprietäres Protokoll." }
+    }
+
+    @Synchronized fun adapterSelfTest(timeoutMs: Long = 2500): String {
+        return listOf("ATI", "AT@1", "ATDP", "ATDPN", "ATRV").joinToString("\n\n") { command ->
+            val result = try { adapterCommand(command, timeoutMs) } catch (e: Exception) { "Fehler: ${e.message}" }
+            "$command\n$result"
+        }
     }
 
     override fun close() {
