@@ -149,6 +149,7 @@ class MainActivity : Activity() {
                 }.start()
             })
             addPanel("UDS-Servicekonsole · $name", "Direkte ISO-TP-Diagnose mit manuell gewähltem CAN-Anfrageheader. Unterstützt Identifikation, DTC-Abfrage, Reset und bestätigtes DTC-Löschen.", "UDS-KONSOLE ÖFFNEN" to { showUdsConsole(device) })
+            addPanel("SFD2-Autorisierung · $name", "Eine zusammenhängende Diagnosesitzung für Aktivierungsdaten und autorisiert erhaltene Tokenantworten. Keine Token-Erzeugung oder Zugangsumgehung.", "SFD2-TERMINAL" to { showSfdTerminal(device) })
             addPanel("OBD-II Basisdiagnose · $name", "Echte generische OBD-II-Leseabfragen: VIN, verfügbare PIDs, Drehzahl, Geschwindigkeit, Spannung. Keine DTC-Löschung.", "OBD-TEST STARTEN" to {
                 begin("OBD-II Lesediagnose")
                 val result = label("Verbinde …", 13f, muted)
@@ -468,6 +469,66 @@ class MainActivity : Activity() {
         content.addView(box)
         addPanel("Antworten interpretieren", "7F = negative UDS-Antwort; 50/51/54/59/62 = mögliche positive Antworten der zugehörigen Dienste. 'NO DATA', 'CAN ERROR' oder Timeout bedeuten nicht automatisch, dass die OCU defekt ist. Prüfe zuerst Adaptertransport, Anfrage-ID, Antwortadressierung und Sessionberechtigung.")
         content.addView(button("DEBUG-PROTOKOLL") { showDebug() })
+    }
+
+    private fun showSfdTerminal(device: BluetoothDevice) {
+        begin("SFD2 · Token-Terminal")
+        addPanel("Autorisierte Diagnosesitzung", "Die OBDeleven-APK nutzt GetSfdActivationData, serverseitige Tokenanforderung und UnlockSfd2Protection. Diese Oberfläche stellt einen unabhängigen Transport für dokumentierte, gültige Freigaben bereit. Das genaue SFD2-Telegrammformat der OCU 2GA 035 284 A ist noch nicht verifiziert. Daher gibt es keine voreingestellten Freigabe-Bytes.")
+        val p = panel()
+        p.addView(label("CAN-Anfrage-ID der OCU", 15f, foreground, true))
+        val header = EditText(this).apply { setText(preferences.getString("uds_can_header", "") ?: ""); setTextColor(this@MainActivity.foreground); hint = "3 oder 8 Hex-Zeichen" }
+        p.addView(header)
+        p.addView(label("Aktivierungsdaten-Anfrage (vollständige UDS-Hexbytes)", 15f, foreground, true))
+        val activation = EditText(this).apply { setTextColor(this@MainActivity.foreground); hint = "Nur mit bestätigter Servicekennung" }
+        p.addView(activation)
+        p.addView(label("Autorisierte Tokenantwort (vollständige UDS-Hexbytes)", 15f, foreground, true))
+        val token = EditText(this).apply { setTextColor(this@MainActivity.foreground); hint = "Gültige externe Freigabe" }
+        p.addView(token)
+        val status = label("Nicht verbunden · Kein Freigabestatus", 13f, muted)
+        p.addView(status)
+        var sessionReady = false
+        val timeout = preferences.getInt("timeout_ms", 3500).toLong()
+        p.addView(button("1 · SFD-DIAGNOSESITZUNG VERBINDEN") {
+            val target = header.text.toString().trim().uppercase()
+            if (!target.matches(Regex("[0-9A-F]{3}|[0-9A-F]{8}"))) { status.text = "CAN-Anfrage-ID fehlt oder ist ungültig"; return@button }
+            status.text = "Verbinde und konfiguriere ISO-TP …"
+            Thread {
+                val result = try {
+                    probe.connect(device)
+                    probe.configureUds(target, timeout, 500)
+                    sessionReady = true
+                    "Diagnosetransport bereit. ECU-Zugriffsrechte noch unbekannt."
+                } catch (e: Exception) { sessionReady = false; "Verbindungsfehler: ${e.message}" }
+                sessionLog.add("SFD2 Transport: $result")
+                runOnUiThread { status.text = result }
+            }.start()
+        })
+        fun send(operation: String, field: EditText, sensitive: Boolean) {
+            if (!sessionReady) { status.text = "Zuerst Diagnoseverbindung herstellen"; return }
+            val command = field.text.toString().replace(" ", "").uppercase()
+            if (!command.matches(Regex("(?:[0-9A-F]{2}){1,64}"))) { status.text = "Ungültige UDS-Hexdaten"; return }
+            val execute = {
+                status.text = "$operation wird übertragen …"
+                Thread {
+                    val result = try { probe.sendUdsPayload(command, timeout) } catch (e: Exception) { "Übertragung fehlgeschlagen: ${e.message}" }
+                    sessionLog.add(if (sensitive) "SFD2-Tokenantwort gesendet (${command.length / 2} Bytes); ECU-Antwort aus Datenschutzgründen nicht protokolliert" else "SFD2 $operation: $result")
+                    runOnUiThread {
+                        status.text = "$operation – ECU-Antwort:\n$result\n\nEine erfolgreiche Token-Übertragung beweist noch keine SFD2-Freigabe. Zugriff auf eine geschützte Funktion gesondert prüfen."
+                    }
+                }.start()
+            }
+            if (sensitive) android.app.AlertDialog.Builder(this).setTitle("Autorisierte Freigabe senden?")
+                .setMessage("Nur ein gültiges, für diese ECU und Sitzung ausgestelltes Token verwenden. Die App erzeugt keine Berechtigung und bestätigt keinen Unlock ohne ECU-Prüfung.")
+                .setNegativeButton("Abbrechen", null).setPositiveButton("TOKEN SENDEN") { _, _ -> execute() }.show()
+            else execute()
+        }
+        p.addView(button("2 · AKTIVIERUNGSDATEN ANFORDERN") { send("Aktivierungsdaten", activation, false) })
+        p.addView(button("3 · GÜLTIGE TOKENANTWORT SENDEN") { send("Autorisierte Tokenantwort", token, true) })
+        p.addView(button("VERBINDUNG BEENDEN / TOKEN VERWERFEN") {
+            token.setText(""); probe.close(); sessionReady = false; status.text = "Sitzung beendet · Token aus Eingabefeld entfernt"
+        })
+        content.addView(p)
+        addPanel("SFD2-Zugriffsprüfung", "Eine positive UDS-Antwort auf den tatsächlich geschützten Dienst bestätigt die konkrete Funktion. Negative Antwort 7F ... 33 signalisiert verweigerten Sicherheitszugriff. Ohne dokumentierten VW-Dienst und gültige Berechtigung kann dieser Terminal keinen SFD2-Unlock garantieren.")
     }
 
     private fun showBleUdsConsole(device: BluetoothDevice) {
