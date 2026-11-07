@@ -343,6 +343,13 @@ class MainActivity : Activity() {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
         }
         box.addView(header)
+        box.addView(label("VAG/MQB CAN-Bitrate", 15f, foreground, true))
+        val rates = listOf("500 kbit/s · MQB Diagnose / Standard", "250 kbit/s · alternative CAN-Anbindung")
+        val rateSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, rates)
+            setSelection(preferences.getInt("uds_bitrate", 0))
+        }
+        box.addView(rateSpinner)
         val status = label("Noch keine Anfrage ausgeführt.", 13f, muted)
         box.addView(status)
         fun executeUds(command: String, caption: String, changing: Boolean) {
@@ -352,12 +359,13 @@ class MainActivity : Activity() {
                 return
             }
             val work = {
-                preferences.edit().putString("uds_can_header", target).apply()
+                val bitrate = if (rateSpinner.selectedItemPosition == 0) 500 else 250
+                preferences.edit().putString("uds_can_header", target).putInt("uds_bitrate", rateSpinner.selectedItemPosition).apply()
                 status.text = "Verbinde · $caption …"
                 Thread {
                     val report = try {
                         probe.connect(device)
-                        "$caption\nAnfrage-ID: $target\nUDS: $command\n\n${probe.udsRequest(target, command, preferences.getInt("timeout_ms", 3500).toLong())}"
+                        "$caption\nAnfrage-ID: $target\nBitrate: $bitrate kbit/s\nUDS: $command\n\n${probe.udsRequest(target, command, preferences.getInt("timeout_ms", 3500).toLong(), bitrate)}"
                     } catch (e: Exception) { "$caption: ${e.javaClass.simpleName}: ${e.message}" }
                     sessionLog.add("UDS $report")
                     runOnUiThread { status.text = report }
