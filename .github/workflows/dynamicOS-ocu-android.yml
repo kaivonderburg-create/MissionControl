@@ -1,0 +1,33 @@
+name: Android Debug APK
+on:
+  push:
+    branches: [dynamicOS-ocu-recovery]
+  pull_request:
+    branches: [master]
+    paths:
+      - 'dynamicOS_OCU_Recovery/**'
+      - '.github/workflows/dynamicOS-ocu-android.yml'
+  workflow_dispatch:
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Inspect preinstalled Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-unset}"
+          ls -d "${ANDROID_HOME:-/usr/local/lib/android/sdk}"/platforms/android-35 || true
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build recovery debug APK
+        working-directory: dynamicOS_OCU_Recovery
+        run: gradle :app:assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-OCU-Recovery-debug-apk
+          path: dynamicOS_OCU_Recovery/app/build/outputs/apk/debug/*.apk
