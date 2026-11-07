@@ -408,6 +408,24 @@ class MainActivity : Activity() {
             val operation = services[selector.selectedItemPosition]
             executeUds(operation.second, operation.first, operation.third)
         })
+        box.addView(label("Expertenmodus · beliebige UDS-Nutzdaten", 17f, foreground, true))
+        box.addView(label("Hexadezimale UDS-Nutzdaten ohne CAN-Frame-Header, z. B. 22F190 (Lesen) oder 2E.... (Schreiben). OEM-DID, Byteformat, Session und Zugriffsrechte müssen bekannt sein. Keine automatischen Seed/Key- oder SFD-Freigaben.", 13f, muted))
+        val rawInput = EditText(this).apply {
+            setTextColor(this@MainActivity.foreground)
+            setHintTextColor(this@MainActivity.muted)
+            hint = "UDS Hexdaten (bis 64 Bytes)"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+        }
+        box.addView(rawInput)
+        box.addView(button("EXPERTEN-UDS-ANFRAGE SENDEN") {
+            val payload = rawInput.text.toString().replace(" ", "").uppercase()
+            if (!payload.matches(Regex("[0-9A-F]{2,128}")) || payload.length % 2 != 0) {
+                status.text = "Bitte vollständige UDS-Hexbytes eingeben (max. 64)."
+            } else {
+                val readOnly = payload.startsWith("22") || payload.startsWith("19") || payload.startsWith("3E")
+                executeUds(payload, "Experten-UDS $payload", !readOnly)
+            }
+        })
         box.addView(button("STEUERGERÄT / VIN LESEN (22 F190)") { executeUds("22F190", "Fahrzeugidentifikation", false) })
         box.addView(button("SOFTWAREKENNUNG LESEN (22 F188)") { executeUds("22F188", "Softwarekennung", false) })
         box.addView(button("FEHLERSTATUS LESEN (19 02 FF)") { executeUds("1902FF", "DTC lesen", false) })
