@@ -28,7 +28,9 @@ class ClassicAdapterProbe(private val context: Context) : Closeable {
     fun connect(device: BluetoothDevice): String {
         close()
         val manager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-        manager.adapter?.cancelDiscovery()
+        // Optional optimization: Android 12+ requires BLUETOOTH_SCAN here.
+        // Never abort the SPP connection just because scan permission is absent.
+        try { manager.adapter?.cancelDiscovery() } catch (_: SecurityException) {}
         val next = device.createRfcommSocketToServiceRecord(spp)
         try {
             next.connect()
