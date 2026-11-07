@@ -2,13 +2,14 @@
 
 Android-Projekt für den Ford Fiesta Mk7 (2015), dunkelgrau, Kennzeichen W-S 107. Optimiert als schlanke Home-App für XY-AUTO F9211B / Android 8.1 / 1024×600 / 1 GB RAM mit eigener Oberfläche und lokaler Lenkradtasten-Anlernung.
 
-## Stand v0.3.0
+## Stand v0.4.0
 
 - Tastenbelegung per `KeyEvent` in der geöffneten App anlernen und dauerhaft speichern.
 - Android-Medienlautstärke und Mediensteuerung über zugeordnete Tasten.
 - USB-Host-Geräteliste inklusive Vendor-ID/Product-ID als Basis für die Adapterintegration.
 - Android-Home-Launcher (HOME/DEFAULT) mit vier großzügigen Kacheln, deutschsprachigen Menüs und dunklem Fahrzeugbild.
 - Überarbeitete native Linien-Icons, abgestimmter Kopfbereich, feste untere Navigation und zweispaltige Menü-Karten für das 1024×600-Display.
+- Beim Erststart bzw. solange dynamicOS nicht Standard ist: Home-App-Einrichtungsbildschirm mit direktem Verweis auf Androids Launcher-Auswahl und Statusprüfung.
 - App-Übersicht, Bluetooth/WLAN/Audio/Anzeige-Systemeinstellungen und Fahrzeug-Menüs.
 - Android-Auto-Startbereich mit Weiterleitung an einen **bereits installierten** kompatiblen Receiver und Verbindungseinstellungen.
 - Kein CAN-Schreibzugriff, keine Steuergeräte-Codierung.
