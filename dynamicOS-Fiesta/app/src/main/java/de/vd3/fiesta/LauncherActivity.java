@@ -3,6 +3,8 @@ package de.vd3.fiesta;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.ComponentName;
+import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.Canvas;
@@ -29,12 +31,69 @@ import java.util.Locale;
 public final class LauncherActivity extends Activity {
     private final int bg = 0xff070f1b, panel = 0xff0e2030, cyan = 0xff00dcef;
     private LinearLayout root;
+    private boolean setupVisible = false;
     private int dp(float n) { return (int)(n * getResources().getDisplayMetrics().density + .5f); }
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-        home();
+        if (isDefaultHome()) home(); else setupHome();
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (setupVisible && isDefaultHome()) {
+            setupVisible = false;
+            home();
+            Toast.makeText(this, "dynamicOS ist jetzt dein Standard-Launcher", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private boolean isDefaultHome() {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_HOME);
+        intent.addCategory(Intent.CATEGORY_DEFAULT);
+        ResolveInfo resolved = getPackageManager().resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
+        return resolved != null && resolved.activityInfo != null && getPackageName().equals(resolved.activityInfo.packageName);
+    }
+
+    private void setupHome() {
+        setupVisible = true;
+        scaffold("Einrichtung");
+        LinearLayout content = new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(35),dp(18),dp(35),dp(18));
+        content.setGravity(Gravity.CENTER_VERTICAL);
+        content.setBackground(shape(0xff0d2433,0xff2b5769));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,0,1);
+        lp.setMargins(0,dp(15),0,dp(15));
+        root.addView(content,lp);
+        TextView title=label("dynamicOS als Startbildschirm festlegen",28,Color.WHITE,true);
+        content.addView(title);
+        TextView info=label("Wähle dynamicOS Fiesta als Standard-Home-App. Danach öffnet sich beim Drücken der Home-Taste und nach dem Systemstart diese Oberfläche. Der bisherige Launcher bleibt als Rückfalloption installiert.",17,0xffbbd6e2,false);
+        LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(-1,dp(92));ip.topMargin=dp(15);content.addView(info,ip);
+        TextView choose=label("   ✓   Standard-Launcher auswählen",21,0xff071923,true);
+        choose.setGravity(Gravity.CENTER);choose.setBackground(shape(cyan,cyan));
+        content.addView(choose,new LinearLayout.LayoutParams(-1,dp(67)));
+        choose.setOnClickListener(v -> {
+            try { startActivity(new Intent(Settings.ACTION_HOME_SETTINGS)); }
+            catch (ActivityNotFoundException e) {
+                Toast.makeText(this,"Diese Firmware bietet keine Home-App-Auswahl. Android-Einstellungen werden geöffnet.",Toast.LENGTH_LONG).show();
+                setting(Settings.ACTION_SETTINGS);
+            }
+        });
+        TextView retry=label("↻  Auswahl prüfen",17,cyan,true);
+        retry.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(53));rp.topMargin=dp(8);
+        content.addView(retry,rp);
+        retry.setOnClickListener(v -> {
+            if(isDefaultHome()) { setupVisible=false; home(); }
+            else Toast.makeText(this,"dynamicOS ist noch nicht als Standard ausgewählt.",Toast.LENGTH_LONG).show();
+        });
+        TextView skip=label("Vorerst ohne Standardauswahl öffnen",15,0xffa7bcc9,false);
+        skip.setGravity(Gravity.CENTER);
+        content.addView(skip,new LinearLayout.LayoutParams(-1,dp(42)));
+        skip.setOnClickListener(v->{setupVisible=false;home();});
     }
 
     private GradientDrawable shape(int color, int stroke) {
