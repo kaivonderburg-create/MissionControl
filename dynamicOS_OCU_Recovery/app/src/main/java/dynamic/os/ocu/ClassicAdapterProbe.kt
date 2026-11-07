@@ -78,7 +78,7 @@ class ClassicAdapterProbe(private val context: Context) : Closeable {
     }
 
     /** Explicit, user-configured ISO-TP/UDS session. No guessed VW CAN identifiers. */
-    @Synchronized fun udsRequest(header: String, request: String, timeoutMs: Long = 3500): String {
+    @Synchronized fun udsRequest(header: String, request: String, timeoutMs: Long = 3500, bitrate: Int = 500): String {
         val cleanHeader = header.trim().uppercase()
         require(cleanHeader.matches(Regex("[0-9A-F]{3}|[0-9A-F]{8}"))) { "CAN-Header muss 3 oder 8 Hex-Zeichen enthalten" }
         val cleanRequest = request.replace(" ", "").uppercase()
@@ -88,8 +88,15 @@ class ClassicAdapterProbe(private val context: Context) : Closeable {
             "1902FF", "1901FF", "190A", "1101", "1103", "14FFFFFF"
         )) { "UDS-Dienst nicht freigegeben" }
         require(output != null) { "Keine aktive SPP-Verbindung" }
+        require(bitrate == 500 || bitrate == 250) { "Nur 250/500 kbit/s unterstützt" }
         // ELM automatic CAN formatting; the ECU request is ISO-TP payload (not CAN framing bytes).
-        val setup = listOf("ATE0", "ATL0", "ATS0", "ATH1", if (cleanHeader.length == 8) "ATSP7" else "ATSP6", "ATCAF1", "ATSH$cleanHeader")
+        val protocol = when {
+            cleanHeader.length == 8 && bitrate == 500 -> "ATSP7"
+            cleanHeader.length == 8 -> "ATSP9"
+            bitrate == 500 -> "ATSP6"
+            else -> "ATSP8"
+        }
+        val setup = listOf("ATE0", "ATL0", "ATS0", "ATH1", protocol, "ATCAF1", "ATSH$cleanHeader")
         setup.forEach { cmd ->
             val reply = writeAndRead(cmd, timeoutMs)
             if (reply.contains("?")) error("Adapter lehnt $cmd ab: $reply")
