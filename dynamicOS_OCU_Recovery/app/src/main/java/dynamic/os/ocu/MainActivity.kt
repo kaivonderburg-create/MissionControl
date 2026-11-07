@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
+import android.view.WindowInsets
 import android.widget.*
 
 class MainActivity : Activity() {
@@ -39,6 +40,14 @@ class MainActivity : Activity() {
         val scroll = ScrollView(this).apply { setBackgroundColor(dark); isFillViewport = true }
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 28, 24, 32) }
         scroll.addView(content); setContentView(scroll)
+        if (Build.VERSION.SDK_INT >= 30) {
+            scroll.setOnApplyWindowInsetsListener { view, insets ->
+                val bars = insets.getInsets(WindowInsets.Type.systemBars())
+                view.setPadding(0, bars.top, 0, bars.bottom)
+                insets
+            }
+            scroll.requestApplyInsets()
+        } else scroll.fitsSystemWindows = true
         content.addView(label("dynamicOS  /  DIAGNOSTICS", 13f, Color.rgb(104, 195, 246), true))
         content.addView(label(title, 28f, foreground, true))
     }
@@ -57,9 +66,9 @@ class MainActivity : Activity() {
     private fun showAdapter() {
         begin("Adapterprüfung")
         content.addView(button("← Übersicht") { showHome() })
-        if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            addPanel("Berechtigung erforderlich", "Bluetooth-Verbindungen für dynamicOS OCU Recovery erlauben.", "Berechtigung anfragen" to {
-                requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT), 100)
+        if (Build.VERSION.SDK_INT >= 31 && (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED || checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED)) {
+            addPanel("Berechtigung erforderlich", "Bluetooth-Verbindungen und Suche nach gekoppelten Adaptern für dynamicOS OCU Recovery erlauben.", "Berechtigungen anfragen" to {
+                requestPermissions(arrayOf(Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN), 100)
             })
             return
         }
