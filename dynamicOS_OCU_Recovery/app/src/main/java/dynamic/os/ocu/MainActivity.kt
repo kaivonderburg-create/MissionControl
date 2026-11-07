@@ -18,6 +18,7 @@ import android.bluetooth.BluetoothDevice
 class MainActivity : Activity() {
     private lateinit var probe: ClassicAdapterProbe
     private lateinit var ble: BleExplorer
+    private lateinit var bleElm: BleElmTransport
     private lateinit var sessionLog: SessionLog
     private lateinit var content: LinearLayout
     private val preferences by lazy { getSharedPreferences("dynamic_os_ocu", MODE_PRIVATE) }
@@ -28,8 +29,8 @@ class MainActivity : Activity() {
     private val muted = Color.rgb(164, 179, 201)
     private val cyan = Color.rgb(106, 213, 255)
     private fun dp(n: Int): Int = (n * resources.displayMetrics.density).toInt()
-    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); probe = ClassicAdapterProbe(this); sessionLog = SessionLog(this); ble = BleExplorer(this) { sessionLog.add(it) }; sessionLog.add("App gestartet; Schreiboperationen nicht aktiviert"); showHome() }
-    override fun onDestroy() { ble.close(); probe.close(); super.onDestroy() }
+    override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); probe = ClassicAdapterProbe(this); sessionLog = SessionLog(this); ble = BleExplorer(this) { sessionLog.add(it) }; bleElm = BleElmTransport(this) { sessionLog.add(it) }; sessionLog.add("App gestartet; UDS nur nach manueller Konfiguration und Bestätigung"); showHome() }
+    override fun onDestroy() { ble.close(); bleElm.close(); probe.close(); super.onDestroy() }
 
     private fun panel(): LinearLayout = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(19), dp(20), dp(19))
@@ -182,6 +183,27 @@ class MainActivity : Activity() {
                             content.addView(output)
                             try { ble.inspect(device) { report -> runOnUiThread { output.text = report } } } catch (e: Exception) { output.text = e.message ?: "Verbindungsfehler" }
                             content.addView(button("ZURÜCK ZUR SUCHE") { ble.disconnect(); showBleScan() })
+                        })
+                        entry.addView(button("BLE-ELM UART TEST (NUS)") {
+                            begin("BLE ELM-Test")
+                            val result = label("Verbinde zum Nordic-UART-Dienst …", 13f, muted)
+                            content.addView(result)
+                            bleElm.connect(device) { msg -> runOnUiThread { result.text = msg } }
+                            content.addView(button("ATI · ADAPTERIDENTITÄT") {
+                                result.text = "ELM-Identität wird abgefragt …"
+                                Thread {
+                                    val reply = try { bleElm.command("ATI", preferences.getInt("timeout_ms", 3500).toLong()) } catch (e: Exception) { "BLE-Fehler: ${e.message}" }
+                                    runOnUiThread { result.text = reply }
+                                }.start()
+                            })
+                            content.addView(button("ATRV · SPANNUNG") {
+                                result.text = "Lese Adapterspannung …"
+                                Thread {
+                                    val reply = try { bleElm.command("ATRV", preferences.getInt("timeout_ms", 3500).toLong()) } catch (e: Exception) { "BLE-Fehler: ${e.message}" }
+                                    runOnUiThread { result.text = reply }
+                                }.start()
+                            })
+                            content.addView(button("BLE TRENNEN") { bleElm.close(); showBleScan() })
                         })
                         content.addView(entry)
                     }
@@ -349,6 +371,35 @@ class MainActivity : Activity() {
                 .show()
             else work()
         }
+        box.addView(label("Service auswählen", 17f, foreground, true))
+        val services = listOf(
+            Triple("10 01 · Standard-Diagnosesitzung", "1001", true),
+            Triple("10 03 · Erweiterte Diagnosesitzung", "1003", true),
+            Triple("3E 00 · Sitzung aufrechterhalten", "3E00", false),
+            Triple("22 F190 · VIN lesen", "22F190", false),
+            Triple("22 F187 · Teilenummer lesen", "22F187", false),
+            Triple("22 F188 · Softwarekennung lesen", "22F188", false),
+            Triple("22 F18A · Systemlieferanten lesen", "22F18A", false),
+            Triple("22 F18C · ECU-Seriennummer lesen", "22F18C", false),
+            Triple("22 F192 · ECU-Hardwarekennung lesen", "22F192", false),
+            Triple("22 F193 · ECU-Hardwareversion lesen", "22F193", false),
+            Triple("22 F194 · ECU-Softwarekennung lesen", "22F194", false),
+            Triple("22 F195 · ECU-Softwareversion lesen", "22F195", false),
+            Triple("19 02 FF · Fehlerdatensätze lesen", "1902FF", false),
+            Triple("19 01 FF · Fehleranzahl lesen", "1901FF", false),
+            Triple("19 0A · Unterstützte DTC lesen", "190A", false),
+            Triple("11 01 · ECU Hard Reset", "1101", true),
+            Triple("11 03 · ECU Soft Reset", "1103", true),
+            Triple("14 FF FF FF · Alle DTC löschen", "14FFFFFF", true)
+        )
+        val selector = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, services.map { it.first })
+        }
+        box.addView(selector)
+        box.addView(button("AUSGEWÄHLTEN UDS-DIENST AUSFÜHREN") {
+            val operation = services[selector.selectedItemPosition]
+            executeUds(operation.second, operation.first, operation.third)
+        })
         box.addView(button("STEUERGERÄT / VIN LESEN (22 F190)") { executeUds("22F190", "Fahrzeugidentifikation", false) })
         box.addView(button("SOFTWAREKENNUNG LESEN (22 F188)") { executeUds("22F188", "Softwarekennung", false) })
         box.addView(button("FEHLERSTATUS LESEN (19 02 FF)") { executeUds("1902FF", "DTC lesen", false) })
