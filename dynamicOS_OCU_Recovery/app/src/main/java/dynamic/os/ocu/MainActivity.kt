@@ -144,6 +144,19 @@ class MainActivity : Activity() {
                     runOnUiThread { status.text = result }
                 }.start()
             })
+            addPanel("UDS-Servicekonsole · $name", "Direkte ISO-TP-Diagnose mit manuell gewähltem CAN-Anfrageheader. Unterstützt Identifikation, DTC-Abfrage, Reset und bestätigtes DTC-Löschen.", "UDS-KONSOLE ÖFFNEN" to { showUdsConsole(device) })
+            addPanel("OBD-II Basisdiagnose · $name", "Echte generische OBD-II-Leseabfragen: VIN, verfügbare PIDs, Drehzahl, Geschwindigkeit, Spannung. Keine DTC-Löschung.", "OBD-TEST STARTEN" to {
+                begin("OBD-II Lesediagnose")
+                val result = label("Verbinde …", 13f, muted)
+                content.addView(result)
+                Thread {
+                    val output = try { probe.connect(device) + "\n\n" + probe.genericObdReadout(preferences.getInt("timeout_ms", 2500).toLong()) }
+                        catch (e: Exception) { "OBD-Test fehlgeschlagen: ${e.javaClass.simpleName}: ${e.message}" }
+                    sessionLog.add("OBD-II: $output")
+                    runOnUiThread { result.text = output }
+                }.start()
+                content.addView(button("DEBUG-PROTOKOLL") { showDebug() })
+            })
         }
         addPanel("BLE / GATT-Gerätesuche", "BLE-Adapter ohne vorherige Android-Kopplung finden und angebotene GATT-Dienste anzeigen. Keine Nutzdaten an das Fahrzeug senden.", "BLE-SUCHLAUF" to { showBleScan() })
         addPanel("Debug-Protokolle", "SPP- und BLE-Ergebnisse lokal protokollieren und exportieren.", "PROTOKOLL ÖFFNEN" to { showDebug() })
@@ -293,5 +306,58 @@ class MainActivity : Activity() {
             val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply { addCategory(Intent.CATEGORY_OPENABLE); type = "text/plain"; putExtra(Intent.EXTRA_TITLE, "dynamicOS_OCU_Servicebericht.txt") }
             startActivityForResult(intent, 200)
         })
+    }
+
+    private fun showUdsConsole(device: BluetoothDevice) {
+        begin("UDS-Servicekonsole")
+        addPanel("Wichtige Voraussetzung", "Du musst die tatsächliche CAN-Anfrage-ID für Steuergerät 0075 aus einem verifizierten Diagnosemitschnitt eintragen. Die Adresse '75' ist die logische VAG-Steuergeräteadresse, kein CAN-Header. Ohne zutreffende ID darf kein Reset gesendet werden.\n\nELM327: 11-bit ISO 15765-4/500 kbit/s oder 29-bit CAN. SFD-/SecurityAccess wird nicht umgangen.")
+        val box = panel()
+        box.addView(label("CAN-Anfrage-ID in Hex (3 oder 8 Zeichen)", 16f, foreground, true))
+        val header = EditText(this).apply {
+            setText(preferences.getString("uds_can_header", "") ?: "")
+            setTextColor(this@MainActivity.foreground)
+            setHintTextColor(this@MainActivity.muted)
+            hint = "z. B. aus deinem Diagnosemitschnitt"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+        }
+        box.addView(header)
+        val status = label("Noch keine Anfrage ausgeführt.", 13f, muted)
+        box.addView(status)
+        fun executeUds(command: String, caption: String, changing: Boolean) {
+            val target = header.text.toString().trim().uppercase()
+            if (!target.matches(Regex("[0-9A-F]{3}|[0-9A-F]{8}"))) {
+                status.text = "Ungültiger CAN-Header. Bitte erst die Ziel-ID eintragen."
+                return
+            }
+            val work = {
+                preferences.edit().putString("uds_can_header", target).apply()
+                status.text = "Verbinde · $caption …"
+                Thread {
+                    val report = try {
+                        probe.connect(device)
+                        "$caption\nAnfrage-ID: $target\nUDS: $command\n\n${probe.udsRequest(target, command, preferences.getInt("timeout_ms", 3500).toLong())}"
+                    } catch (e: Exception) { "$caption: ${e.javaClass.simpleName}: ${e.message}" }
+                    sessionLog.add("UDS $report")
+                    runOnUiThread { status.text = report }
+                }.start()
+            }
+            if (changing) android.app.AlertDialog.Builder(this)
+                .setTitle("Steuergerät wirklich verändern?")
+                .setMessage("Befehl $command an CAN-ID $target senden? Dies kann die SOS-Funktion vorübergehend unterbrechen oder Fehlerspeicher löschen. Nur fortfahren, wenn ID und VW-Verfahren sicher bestätigt sind. Zündung und stabile Fahrzeugspannung sicherstellen.")
+                .setNegativeButton("Abbrechen", null)
+                .setPositiveButton("BEFEHL SENDEN") { _, _ -> work() }
+                .show()
+            else work()
+        }
+        box.addView(button("STEUERGERÄT / VIN LESEN (22 F190)") { executeUds("22F190", "Fahrzeugidentifikation", false) })
+        box.addView(button("SOFTWAREKENNUNG LESEN (22 F188)") { executeUds("22F188", "Softwarekennung", false) })
+        box.addView(button("FEHLERSTATUS LESEN (19 02 FF)") { executeUds("1902FF", "DTC lesen", false) })
+        box.addView(button("DTC-ANZAHL LESEN (19 01 FF)") { executeUds("1901FF", "DTC-Status", false) })
+        box.addView(button("STEUERGERÄT NEUSTARTEN (11 01)") { executeUds("1101", "ECU Hard Reset", true) })
+        box.addView(button("STEUERGERÄT SOFT-RESET (11 03)") { executeUds("1103", "ECU Soft Reset", true) })
+        box.addView(button("FEHLERSPEICHER LÖSCHEN (14 FF FF FF)") { executeUds("14FFFFFF", "DTC löschen", true) })
+        content.addView(box)
+        addPanel("Antworten interpretieren", "7F = negative UDS-Antwort; 50/51/54/59/62 = mögliche positive Antworten der zugehörigen Dienste. 'NO DATA', 'CAN ERROR' oder Timeout bedeuten nicht automatisch, dass die OCU defekt ist. Prüfe zuerst Adaptertransport, Anfrage-ID, Antwortadressierung und Sessionberechtigung.")
+        content.addView(button("DEBUG-PROTOKOLL") { showDebug() })
     }
 }
