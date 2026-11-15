@@ -1,0 +1,9 @@
+{
+  "appId": "de.vd3dynamic.sentinel",
+  "appName": "dynamicOS Sentinel X",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "capacitor"
+  }
+}
