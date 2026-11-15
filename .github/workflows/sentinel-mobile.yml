@@ -1,0 +1,119 @@
+name: Sentinel Android + iOS
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'sentinel-mobile/**'
+      - '.github/workflows/sentinel-mobile.yml'
+  push:
+    branches: [dynamicOS-sentinel-mobile]
+    paths:
+      - 'sentinel-mobile/**'
+      - '.github/workflows/sentinel-mobile.yml'
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sentinel-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify Android SDK
+        run: echo "ANDROID_HOME=$ANDROID_HOME" && test -d "$ANDROID_HOME/platforms"
+      - run: npm install
+      - run: npx cap add android
+      - run: npx cap sync android
+      - name: Compile Android debug APK
+        run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-Sentinel-Android-APK
+          path: sentinel-mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+  ios:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: sentinel-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install
+      - run: npx cap add ios
+      - run: npx cap sync ios
+      - name: Install CocoaPods
+        run: cd ios/App && pod install --repo-update
+      - name: Compile iPhoneOS app without signing
+        run: xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath ios-build CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned IPA (cannot install on normal iPhone)
+        run: |
+          mkdir -p export/Payload
+          cp -R ios-build/Build/Products/Debug-iphoneos/App.app export/Payload/
+          cd export && zip -qr dynamicOS-Sentinel-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-Sentinel-iOS-unsigned-IPA
+          path: sentinel-mobile/export/dynamicOS-Sentinel-unsigned.ipa
+          if-no-files-found: error
+
+  ios-signed:
+    if: github.event_name == 'push'
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: sentinel-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check Apple signing credentials
+        id: credentials
+        env:
+          CERT: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          TEAM: ${{ secrets.IOS_TEAM_ID }}
+          KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          if [[ -n "$CERT" && -n "$CERT_PASSWORD" && -n "$PROFILE" && -n "$TEAM" && -n "$KEYCHAIN_PASSWORD" ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Signed IPA requires Apple Distribution certificate, ad hoc provisioning profile, team ID and temporary keychain password.'
+          fi
+      - if: steps.credentials.outputs.ready == 'true'
+        run: npm install
+      - if: steps.credentials.outputs.ready == 'true'
+        run: npx cap add ios
+      - if: steps.credentials.outputs.ready == 'true'
+        run: npx cap sync ios
+      - if: steps.credentials.outputs.ready == 'true'
+        run: cd ios/App && pod install --repo-update
+      - name: Build and sign IPA
+        if: steps.credentials.outputs.ready == 'true'
+        env:
+          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: bash scripts/sign-ios.sh
+      - uses: actions/upload-artifact@v4
+        if: steps.credentials.outputs.ready == 'true'
+        with:
+          name: dynamicOS-Sentinel-iOS-signed-IPA
+          path: sentinel-mobile/export/dynamicOS-Sentinel-signed.ipa
+          if-no-files-found: error
