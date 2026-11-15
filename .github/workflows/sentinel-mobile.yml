@@ -67,3 +67,53 @@ jobs:
           name: dynamicOS-Sentinel-iOS-unsigned-IPA
           path: sentinel-mobile/export/dynamicOS-Sentinel-unsigned.ipa
           if-no-files-found: error
+
+  ios-signed:
+    if: github.event_name == 'push'
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: sentinel-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check Apple signing credentials
+        id: credentials
+        env:
+          CERT: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          TEAM: ${{ secrets.IOS_TEAM_ID }}
+          KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: |
+          if [[ -n "$CERT" && -n "$CERT_PASSWORD" && -n "$PROFILE" && -n "$TEAM" && -n "$KEYCHAIN_PASSWORD" ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Signed IPA requires Apple Distribution certificate, ad hoc provisioning profile, team ID and temporary keychain password.'
+          fi
+      - if: steps.credentials.outputs.ready == 'true'
+        run: npm install
+      - if: steps.credentials.outputs.ready == 'true'
+        run: npx cap add ios
+      - if: steps.credentials.outputs.ready == 'true'
+        run: npx cap sync ios
+      - if: steps.credentials.outputs.ready == 'true'
+        run: cd ios/App && pod install --repo-update
+      - name: Build and sign IPA
+        if: steps.credentials.outputs.ready == 'true'
+        env:
+          IOS_CERTIFICATE_P12_BASE64: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISION_PROFILE_BASE64: ${{ secrets.IOS_PROVISION_PROFILE_BASE64 }}
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          IOS_KEYCHAIN_PASSWORD: ${{ secrets.IOS_KEYCHAIN_PASSWORD }}
+        run: bash scripts/sign-ios.sh
+      - uses: actions/upload-artifact@v4
+        if: steps.credentials.outputs.ready == 'true'
+        with:
+          name: dynamicOS-Sentinel-iOS-signed-IPA
+          path: sentinel-mobile/export/dynamicOS-Sentinel-signed.ipa
+          if-no-files-found: error
