@@ -1,0 +1,61 @@
+name: Sentinel Android + iOS
+on:
+  workflow_dispatch:
+  push:
+    branches: [dynamicOS-sentinel-mobile]
+    paths:
+      - 'sentinel-mobile/**'
+      - '.github/workflows/sentinel-mobile.yml'
+permissions:
+  contents: read
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sentinel-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - run: npm install
+      - run: npx cap add android
+      - run: npx cap sync android
+      - name: Compile Android debug APK
+        run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-Sentinel-Android-APK
+          path: sentinel-mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+  ios:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: sentinel-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install
+      - run: npx cap add ios
+      - run: npx cap sync ios
+      - name: Compile iPhoneOS app without signing
+        run: xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath ios-build CODE_SIGNING_ALLOWED=NO build
+      - name: Package unsigned IPA (cannot install on normal iPhone)
+        run: |
+          mkdir -p export/Payload
+          cp -R ios-build/Build/Products/Debug-iphoneos/App.app export/Payload/
+          cd export && zip -qr dynamicOS-Sentinel-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-Sentinel-iOS-unsigned-IPA
+          path: sentinel-mobile/export/dynamicOS-Sentinel-unsigned.ipa
+          if-no-files-found: error
