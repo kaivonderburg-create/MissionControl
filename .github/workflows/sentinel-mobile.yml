@@ -1,6 +1,11 @@
 name: Sentinel Android + iOS
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'sentinel-mobile/**'
+      - '.github/workflows/sentinel-mobile.yml'
   push:
     branches: [dynamicOS-sentinel-mobile]
     paths:
