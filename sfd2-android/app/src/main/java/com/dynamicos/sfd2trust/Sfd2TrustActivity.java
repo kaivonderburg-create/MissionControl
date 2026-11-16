@@ -299,7 +299,7 @@ public final class Sfd2TrustActivity extends Activity {
         add(upload,action(tokenImported?"Beleg ersetzen":"Signierten Beleg importieren",false,()->pick(PICK_JWS)),13);
         sectionTitle("BINDUNG ZUM AUFTRAG",22);
         LinearLayout form=surface(10);
-        field(form,"FAHRZEUGIDENTIFIKATION",vin=input(vin,"FIN – 17 Zeichen"));
+        field(form,"FAHRZEUGIDENTIFIKATION",vinField=input(vin,"FIN – 17 Zeichen"));
         field(form,"STEUERGERÄT",ecuField=input(ecu,"ECU, z. B. 17"));
         field(form,"CHALLENGE",challengeField=input(challenge,"Challenge aus Aufzeichnung"));
         add(form,action("Vertrauensnachweis prüfen  →",true,()->{
@@ -453,10 +453,10 @@ public final class Sfd2TrustActivity extends Activity {
         Toast.makeText(this,limit(message,100),Toast.LENGTH_LONG).show();
         showPage();
     }
-    private static final class IconView extends View {
+    private final class IconView extends View {
         final int type; final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
         final int ink;
-        IconView(int type,int ink){ super(Sfd2TrustActivityHolder.context); this.type=type;this.ink=ink; }
+        IconView(int type,int ink){ super(Sfd2TrustActivity.this); this.type=type;this.ink=ink; }
         @Override protected void onDraw(Canvas original){
             super.onDraw(original);
             int save=original.save();
@@ -494,12 +494,5 @@ public final class Sfd2TrustActivity extends Activity {
             }
             original.restoreToCount(save);
         }
-    }
-    private static final class Sfd2TrustActivityHolder {
-        static Activity context;
-    }
-    @Override protected void onStart() {
-        Sfd2TrustActivityHolder.context=this;
-        super.onStart();
     }
 }
