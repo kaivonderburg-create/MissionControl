@@ -1,7 +1,7 @@
-name: dynamicOS SFD2 Trust Center APK
+name: dynamicOS SFD2 Premium APK
 on:
   push:
-    branches: [dynamicOS-sfd2-trust-v9]
+    branches: [dynamicOS-sfd2-premium-v9-1]
     paths:
       - 'sfd2-android/**'
       - '.github/workflows/dynamicos-sfd2-apk.yml'
@@ -36,7 +36,7 @@ jobs:
         run: test -s sfd2-android/app/build/outputs/apk/debug/app-debug.apk && sha256sum sfd2-android/app/build/outputs/apk/debug/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: dynamicOS-SFD2-TrustCenter-v9-APK
+          name: dynamicOS-SFD2-Premium-v9_1-APK
           path: sfd2-android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
       - name: Direktdownload-APK auf Branch ablegen
@@ -44,8 +44,8 @@ jobs:
         continue-on-error: true
         run: |
           mkdir -p sfd2-android/releases
-          cp sfd2-android/app/build/outputs/apk/debug/app-debug.apk sfd2-android/releases/dynamicOS-SFD2-TrustCenter-v9-debug.apk
+          cp sfd2-android/app/build/outputs/apk/debug/app-debug.apk sfd2-android/releases/dynamicOS-SFD2-Premium-v9_1-debug.apk
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add sfd2-android/releases/dynamicOS-SFD2-TrustCenter-v9-debug.apk
-          if ! git diff --cached --quiet; then git commit -m 'Build Android APK v8'; git push; fi
+          git add sfd2-android/releases/dynamicOS-SFD2-Premium-v9_1-debug.apk
+          if ! git diff --cached --quiet; then git commit -m 'Build Android APK v9.1'; git push; fi
