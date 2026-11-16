@@ -288,8 +288,8 @@ public final class LabEngine {
         require(verifyJob(), "Signaturprüfung fehlgeschlagen");
         require(tamperTest(), "Manipulation nicht erkannt");
         apply(); require(replayTest(), "Replay nicht erkannt");
-        event("TEST", "7/7 Labor-Checks erfolgreich");
-        return "7/7 Tests bestanden · Virtuelle ECU codiert";
+        event("TEST", "8/8 Labor-Checks erfolgreich");
+        return "8/8 Tests bestanden · Virtuelle ECU codiert";
     }
     public synchronized void reset() {
         state = new JSONObject();
