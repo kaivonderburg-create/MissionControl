@@ -19,12 +19,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
+      - name: Vorhandenes Android SDK prüfen
+        run: |
+          echo "SDK: $ANDROID_HOME"
+          ls -la "$ANDROID_HOME/platforms" | tail -15
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Android SDK 35 installieren
-        run: yes | sdkmanager --licenses >/dev/null && sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Android SDK 35 sicherstellen
+        run: |
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -1)
+          "$SDKMANAGER" 'platforms;android-35' 'build-tools;35.0.0'
       - name: APK bauen
         run: gradle --no-daemon --stacktrace -p sfd2-android :app:assembleDebug
       - name: APK prüfen
