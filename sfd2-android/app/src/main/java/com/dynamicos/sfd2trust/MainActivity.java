@@ -19,14 +19,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
-    private final int BG = Color.rgb(8,14,24);
-    private final int PANEL = Color.rgb(16,27,43);
-    private final int SUB = Color.rgb(24,39,58);
-    private final int BLUE = Color.rgb(77,176,255);
-    private final int MUTE = Color.rgb(146,163,184);
-    private final int WHITE = Color.rgb(236,244,255);
-    private final int GREEN = Color.rgb(98,224,182);
-    private final int BORDER = Color.rgb(45,62,82);
+    private final int BG = Color.rgb(9,14,19);
+    private final int PANEL = Color.rgb(20,29,37);
+    private final int SUB = Color.rgb(26,37,46);
+    private final int BLUE = Color.rgb(151,207,225);
+    private final int MUTE = Color.rgb(155,174,184);
+    private final int WHITE = Color.rgb(236,243,246);
+    private final int GREEN = Color.rgb(145,207,181);
+    private final int BORDER = Color.rgb(44,58,68);
     private LabEngine lab;
     private LinearLayout root, work, nav;
     private TextView statusPill;
@@ -57,7 +57,7 @@ public class MainActivity extends Activity {
     private TextView label(String value,int sp,int color,boolean bold) {
         TextView t=new TextView(this);
         t.setText(value);t.setTextSize(sp);t.setTextColor(color);
-        if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        t.setTypeface(Typeface.create(bold?"sans-serif-medium":"sans-serif",Typeface.NORMAL)); t.setIncludeFontPadding(false);
         t.setGravity(Gravity.CENTER_VERTICAL);
         return t;
     }
@@ -73,7 +73,7 @@ public class MainActivity extends Activity {
         LinearLayout.LayoutParams p=lp(-1,-2);p.topMargin=dp(top);l.addView(v,p);
     }
     private LinearLayout card(LinearLayout parent,String title,String subtitle) {
-        LinearLayout c=vertical();pad(c,16,14);c.setBackground(shape(PANEL,18,BORDER));
+        LinearLayout c=vertical();pad(c,16,15);c.setBackground(shape(PANEL,17,BORDER));
         add(parent,c,12);
         if(title!=null){add(c,label(title,15,WHITE,true),0);}
         if(subtitle!=null){add(c,label(subtitle,11,MUTE,false),4);}
@@ -82,7 +82,7 @@ public class MainActivity extends Activity {
     private TextView action(String text,boolean primary,Runnable run) {
         TextView t=label(text,13,primary?BG:WHITE,true);
         t.setGravity(Gravity.CENTER);t.setMinHeight(dp(45));pad(t,12,9);
-        t.setBackground(shape(primary?BLUE:SUB,12,primary?0:BORDER));
+        t.setBackground(shape(primary?BLUE:SUB,11,primary?0:BORDER));
         t.setOnClickListener(v->run.run());
         return t;
     }
@@ -126,24 +126,24 @@ public class MainActivity extends Activity {
         setContentView(root);
         LinearLayout header=horizontal();pad(header,18,13);
         LinearLayout title=vertical();
-        add(title,label("dynamicOS",21,WHITE,true),0);
-        add(title,label("SFD2 TRUST SIGNER  /  ANDROID 8.0",10,BLUE,true),2);
+        add(title,label("dynamicOS",22,WHITE,true),0);
+        TextView sub=label("VW SERVICE  /  TOKEN LAB 9.1",10,BLUE,true);sub.setLetterSpacing(.11f);add(title,sub,5);
         header.addView(title,new LinearLayout.LayoutParams(0,-2,1));
-        statusPill=label("●  LAB",11,GREEN,true);
+        statusPill=label("ISOLIERT",11,GREEN,true);
         statusPill.setGravity(Gravity.CENTER);pad(statusPill,11,8);statusPill.setBackground(shape(SUB,99,BORDER));
         header.addView(statusPill,lp(-2,-2));root.addView(header,lp(-1,-2));
 
-        LinearLayout banner=horizontal();pad(banner,13,7);banner.setBackgroundColor(Color.rgb(25,37,55));
-        TextView info=label("LOKALE TEST-ECU  ·  KEIN VW-UNLOCK",10,MUTE,true);
+        LinearLayout banner=horizontal();pad(banner,13,7);banner.setBackgroundColor(Color.rgb(24,33,40));
+        TextView info=label("VIRTUELLE ECU     /     KEINE HERSTELLERFREIGABE",10,MUTE,true);
         info.setGravity(Gravity.CENTER);banner.addView(info,lp(-1,-2));root.addView(banner,lp(-1,-2));
 
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setVerticalScrollBarEnabled(false);
-        work=vertical();pad(work,15,8);scroll.addView(work);
+        work=vertical();pad(work,18,9);scroll.addView(work);
         root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
 
         nav=horizontal();pad(nav,8,9);nav.setBackgroundColor(PANEL);
         String[] names={"Übersicht","Signieren","Prüfen","Journal"};
-        String[] ico={"◉","✎","✓","≡"};
+        String[] ico={"◇","⌁","✓","≡"};
         for(int i=0;i<names.length;i++){
             final int to=i;
             LinearLayout item=vertical();item.setGravity(Gravity.CENTER);pad(item,4,8);
@@ -161,12 +161,12 @@ public class MainActivity extends Activity {
         else journal();
     }
     private void sectionHead(String eyebrow,String title,String lead){
-        add(work,label(eyebrow,11,BLUE,true),12);
-        add(work,label(title,23,WHITE,true),4);
-        add(work,label(lead,12,MUTE,false),6);
+        TextView eyebrowView=label(eyebrow,10,BLUE,true);eyebrowView.setLetterSpacing(.13f);add(work,eyebrowView,16);
+        add(work,label(title,26,WHITE,true),8);
+        add(work,label(lead,13,MUTE,false),9);
     }
     private void dashboard(){
-        sectionHead("DIAGNOSE-LABOR","Trust Workspace","Kryptografische Authentifizierung für virtuelle Steuergeräte.");
+        sectionHead("DYNAMICOS  /  LABOR","Trust Workspace","Kryptografische Authentifizierung für virtuelle Steuergeräte.");
         LinearLayout status=card(work,"Systemstatus","Der Signaturdienst wird direkt auf deinem Gerät ausgeführt.");
         TextView ok=label("●  Ed25519 Engine aktiv    ·    Android Keystore aktiv",12,GREEN,true);
         add(status,ok,12);
@@ -174,17 +174,17 @@ public class MainActivity extends Activity {
         LinearLayout progress=card(work,"Workflow","Fünf sichere Schritte vom Teststeuergerät bis zur gespeicherten Laborcodierung.");
         TextView count=label(lab.progress()+"/5  Schritte abgeschlossen",25,BLUE,true);
         add(progress,count,9);
-        TextView bar=label("● ECU   ● Challenge   ● Token   ● Signatur   ● Anwenden",11,MUTE,false);add(progress,bar,8);
+        TextView bar=label("ECU   /   Challenge   /   Token   /   Signatur   /   Anwendung",11,MUTE,false);add(progress,bar,8);
         buttonRow(progress,"Kompletten Test",()->process("Alle 8 Laborprüfungen erfolgreich",()->lab.fullTest(vin,ecu,payload)),
                 "Signaturstudio",()->switchPage(1));
         LinearLayout state=card(work,"Virtuelles Steuergerät","Lokale Sitzungsdaten, keine Verbindung mit einem Fahrzeug.");
         TextView data=label(lab.status(),12,WHITE,false);data.setTextIsSelectable(true);data.setLineSpacing(dp(3),1);
         add(state,data,10);
         LinearLayout warn=card(work,"Vertrauensgrenze","Eigene Testschlüssel werden NICHT von realen VW-Steuergeräten anerkannt.");
-        add(warn,label("SFD2 Fahrzeugfreigabe: NICHT VORHANDEN",12,Color.rgb(255,183,132),true),7);
+        add(warn,label("SFD2 Fahrzeugfreigabe: NICHT VORHANDEN",12,Color.rgb(224,187,137),true),7);
     }
     private void signer(){
-        sectionHead("KRYPTOGRAPHIE","Signaturstudio","Alle Schritte laufen lokal – ohne Browser und ohne Server.");
+        sectionHead("LABOR  /  SIGNATURE","Signaturstudio","Alle Schritte laufen lokal – ohne Browser und ohne Server.");
         LinearLayout fields=card(work,"Auftragsdaten","FIN und ECU sind ausschließlich Kennungen für die virtuelle Labor-ECU.");
         vinInput=field(vin,"17-stellige FIN",false);
         ecuInput=field(ecu,"ECU z. B. 17",false);
@@ -204,7 +204,7 @@ public class MainActivity extends Activity {
         TextView v=label(lab.status(),12,WHITE,false);v.setTextIsSelectable(true);add(result,v,9);
     }
     private void verifyPage(){
-        sectionHead("EVIDENCE ENGINE","Prüfstand","Kryptografische Prüfung, Manipulation und Replay.");
+        sectionHead("SICHERHEITSPRÜFUNG","Prüfstand","Kryptografische Prüfung, Manipulation und Replay.");
         LinearLayout test=card(work,"Sicherheitsprüfungen","Die beiden negativen Tests müssen ausdrücklich abgelehnt werden.");
         buttonRow(test,"Signatur prüfen",()->process("Signaturprüfung abgeschlossen",()->{
                      if(!lab.verifyJob())throw new IllegalStateException("Signatur ungültig");}),
@@ -216,11 +216,11 @@ public class MainActivity extends Activity {
         LinearLayout pkg=card(work,"Signiertes Auftragspaket","Nur das Laborformat dynamicOS-lab-signed-coding/8.");
         TextView v=label(lab.artifact(),11,WHITE,false);v.setTextIsSelectable(true);add(pkg,v,10);
         LinearLayout trust=card(work,"Gültigkeitsbereich","Kryptografisch gültig bedeutet nicht OEM-autorisiert.");
-        add(trust,label("LOKALES TESTZERTIFIKAT · KEINE VW-VERTRAUENSKETTE",11,Color.rgb(255,190,125),true),8);
+        add(trust,label("LOKALES TESTZERTIFIKAT · KEINE VW-VERTRAUENSKETTE",11,Color.rgb(224,187,137),true),8);
         add(trust,label("Hardware-ECU: nicht verbunden\nSFD2-Unlock: nein\nReale Codierung: gesperrt",12,MUTE,false),9);
     }
     private void journal(){
-        sectionHead("AUDIT-TRAIL","Ereignisjournal","Chronologische Übersicht der lokalen Signatur- und Prüfereignisse.");
+        sectionHead("LOKALES PROTOKOLL","Ereignisjournal","Chronologische Übersicht der lokalen Signatur- und Prüfereignisse.");
         LinearLayout controls=card(work,"Sitzung",null);
         buttonRow(controls,"Protokoll teilen",this::shareLog,
                   "Labor zurücksetzen",()->process("Laborzustand zurückgesetzt",()->lab.reset()));
