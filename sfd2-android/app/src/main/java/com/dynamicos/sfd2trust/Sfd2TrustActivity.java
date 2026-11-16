@@ -31,7 +31,7 @@ import java.util.Locale;
  * authorizations; the locally trusted CA is user-supplied and not OEM-verified.
  */
 public final class Sfd2TrustActivity extends Activity {
-    private static final int PICK_ROOT=201, PICK_CHAIN=202, PICK_JWS=203;
+    private static final int PICK_ROOT=201, PICK_CHAIN=202, PICK_JWS=203, PICK_SCAN=204;
     private static final int BG=Color.rgb(9,14,19);
     private static final int SURFACE=Color.rgb(20,29,37);
     private static final int SURFACE_2=Color.rgb(26,37,46);
@@ -45,6 +45,10 @@ public final class Sfd2TrustActivity extends Activity {
     private LinearLayout root, content;
     private EditText vinField, ecuField, challengeField;
     private Sfd2TrustVerifier verifier;
+    private Sfd2VehicleRegistry registry;
+    private Sfd2EvidenceAnalyzer.Result scanEvidence;
+    private String vehicleFilter="";
+    private String catalogueNotice="";
     private SharedPreferences prefs;
     private String vin="",ecu="17",challenge="";
     private String message="Noch kein Nachweis geprüft";
@@ -60,6 +64,7 @@ public final class Sfd2TrustActivity extends Activity {
         getWindow().setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         prefs=getSharedPreferences("sfd2_trust_v9",MODE_PRIVATE);
         verifier=new Sfd2TrustVerifier();
+        registry=new Sfd2VehicleRegistry(this);
         vin=prefs.getString("vin","");
         ecu=prefs.getString("ecu","17");
         challenge=prefs.getString("challenge","");
@@ -170,7 +175,8 @@ public final class Sfd2TrustActivity extends Activity {
         switch(tab){
             case 0: trustPage();break;
             case 1: tokenPage();break;
-            case 2: ecuPage();break;
+            case 2: vehiclesPage();break;
+            case 3: ecuPage();break;
             default: labPage();break;
         }
     }
@@ -178,8 +184,8 @@ public final class Sfd2TrustActivity extends Activity {
         LinearLayout holder=layout(false);holder.setBackgroundColor(SURFACE);
         View line=new View(this);line.setBackgroundColor(STROKE);holder.addView(line,params(-1,1));
         LinearLayout nav=row();padding(nav,10,9,10,11);
-        final String[] titles={"Trust","Token","ECU","Labor"};
-        for(int i=0;i<4;i++){
+        final String[] titles={"Trust","Token","Fahrzeuge","ECU","Labor"};
+        for(int i=0;i<5;i++){
             final int selected=i;
             LinearLayout item=layout(false);item.setGravity(Gravity.CENTER);
             padding(item,4,5,4,5);
@@ -334,8 +340,81 @@ public final class Sfd2TrustActivity extends Activity {
         add(card,overline(label),11);
         add(card,edit,7);
     }
+
+    private void vehiclesPage() {
+        intro("SFD2-FAHRZEUGKATALOG  /  03","Fahrzeugdatenbank",
+              "Quellenbasierte Modellhinweise – keine automatische ECU-Freigabe.");
+        LinearLayout header=layout(false);header.setBackground(gradient());
+        padding(header,17,17,17,17);add(content,header,19);
+        add(header,overline("MODELLREGISTER"),0);
+        add(header,text(registry.count()+"  erfasste Varianten",22,WHITE,true),8);
+        TextView status=text("Stand "+registry.revision()+"   ·   "+
+                (registry.connected()?"Netzwerk erreichbar":"Offlinebetrieb"),12,SECONDARY,false);
+        add(header,status,7);
+        add(header,action("Katalog über HTTPS aktualisieren",true,()->{
+            catalogueNotice="Lade Fahrzeugdaten …";
+            registry.refresh((ok,msg)->{
+                catalogueNotice=msg;
+                if(tab==2)showPage();
+                else Toast.makeText(this,msg,Toast.LENGTH_LONG).show();
+            });
+            showPage();
+        }),14);
+        if(!catalogueNotice.isEmpty()) add(content,text(catalogueNotice,12,SECONDARY,false),9);
+
+        sectionTitle("MODELL SUCHEN",24);
+        EditText query=input(vehicleFilter,"Marke, Modell oder Baureihe");
+        add(content,query,11);
+        LinearLayout results=layout(false);
+        add(content,results,8);
+        renderVehicles(results,vehicleFilter);
+        query.addTextChangedListener(new android.text.TextWatcher(){
+            public void beforeTextChanged(CharSequence x,int start,int count,int after){}
+            public void onTextChanged(CharSequence x,int start,int before,int count){
+                vehicleFilter=x.toString();renderVehicles(results,vehicleFilter);
+            }
+            public void afterTextChanged(android.text.Editable x){}
+        });
+        LinearLayout note=surface(14);
+        add(note,overline("EINORDNUNG"),0);
+        add(note,text("Ein Modelleinstieg bedeutet nicht, dass alle Steuergeräte SFD2-geschützt sind. Entscheidend sind FIN, ECU, Hardware-/Softwarestand und konkret geschützte Funktion.",
+                12,SECONDARY,false),8);
+        TextView src=text("Quelle: Carista SFD2-Übersicht  ·  Stand: "+registry.revision(),11,ACCENT,true);
+        add(note,src,13);
+    }
+    private void renderVehicles(LinearLayout target,String query) {
+        target.removeAllViews();
+        java.util.List<Sfd2VehicleRegistry.Vehicle> rows=registry.find(query);
+        if(rows.isEmpty()){
+            add(target,text("Keine Übereinstimmung im lokalen Katalog.",13,SECONDARY,false),10);
+            return;
+        }
+        for(Sfd2VehicleRegistry.Vehicle v:rows){
+            LinearLayout card=layout(false);card.setBackground(bg(SURFACE,13,STROKE));
+            padding(card,14,12,14,12);
+            LinearLayout heading=row();
+            LinearLayout details=layout(false);
+            add(details,text(v.title(),14,WHITE,true),0);
+            add(details,text(v.subtitle(),12,SECONDARY,false),6);
+            heading.addView(details,new LinearLayout.LayoutParams(0,-2,1));
+            TextView status=text("INFO",10,ACCENT,true);
+            status.setGravity(Gravity.CENTER);heading.addView(status,params(40,28));
+            add(card,heading,0);
+            if("T-Cross".equalsIgnoreCase(v.model)){
+                TextView mark=overline("T-CROSS FACELIFT · SFD2 LISTUNG");
+                mark.setTextColor(ACCENT);add(card,mark,10);
+            }
+            card.setOnClickListener(w->dialog(v.title(),
+                "Baureihe: "+v.code+"\nKriterium: "+v.criteria+"\n\n"+
+                "SFD2-Modellhinweis (Quelle: Carista). Kein Nachweis für eine einzelne ECU.\n"+
+                "Bei einem konkreten Fahrzeug sind ein passiver Diagnose-Scan und der Steuergerätestand nötig.\n\n"+
+                Sfd2VehicleRegistry.SOURCE_URL));
+            add(target,card,8);
+        }
+    }
+
     private void ecuPage() {
-        intro("ECU-STATUS  /  03","Freigabestatus",
+        intro("ECU-STATUS  /  04","Freigabestatus",
               "Getrennte Prüfung von Signaturvertrauen und ECU-Akzeptanz.");
         LinearLayout summary=layout(false);summary.setBackground(gradient());
         padding(summary,17,18,17,17);add(content,summary,19);
@@ -345,7 +424,7 @@ public final class Sfd2TrustActivity extends Activity {
         add(left,text("Nicht freigegeben",23,WHITE,true),8);
         add(left,text("Keine bestätigte Antwort eines VW-Steuergeräts",12,SECONDARY,false),9);
         r.addView(left,new LinearLayout.LayoutParams(0,-2,1));
-        IconView ic=new IconView(2,AMBER);r.addView(ic,params(36,36));
+        IconView ic=new IconView(3,AMBER);r.addView(ic,params(36,36));
         summary.addView(r,params(-1,-2));
         sectionTitle("VERIFIKATIONSEBENEN",23);
         LinearLayout levels=surface(10);
@@ -358,6 +437,22 @@ public final class Sfd2TrustActivity extends Activity {
         statusRow(levels,"03","VW-Herstellervertrauen","Nicht nachgewiesen",AMBER);
         rule(levels,13);
         statusRow(levels,"04","Akzeptanz durch Fahrzeug","Keine ECU-Verbindung",AMBER);
+        LinearLayout evidence=surface(13);
+        add(evidence,overline("AUTOMATISCHE PROTOKOLLAUSWERTUNG"),0);
+        add(evidence,text("Importierte Diagnoseprotokolle werden lokal auf SFD-/SFD2-Hinweise, ECU-Adressen und Ablehnungsgründe untersucht.",12,SECONDARY,false),8);
+        add(evidence,action("Diagnoseprotokoll auswählen",false,()->pick(PICK_SCAN)),12);
+        if(scanEvidence!=null){
+            add(evidence,text(scanEvidence.verdict,12,ACCENT,true),12);
+            add(evidence,text("SFD2-Marker: "+scanEvidence.sfd2Mentions+
+                "   ·   NRC-Ablehnungen: "+scanEvidence.deniedResponses,11,SECONDARY,false),6);
+            TextView report=text("Detaillierten Analysebericht öffnen  →",12,ACCENT,true);
+            add(evidence,report,11);
+            report.setOnClickListener(v->dialog("SFD2-Protokollbericht",scanEvidence.toReport()));
+        }
+        LinearLayout guard=surface(13);
+        add(guard,overline("SCHREIBZUGRIFF-KONTROLLE"),0);
+        add(guard,text("ECU-Schreibzugriffe: GESPERRT",15,AMBER,true),9);
+        add(guard,text("Noch kein bestätigter VW-Vertrauensnachweis, kein physischer ECU-Transport und keine positive Autorisierungsantwort. Schreibzugriffe auf reale Steuergeräte werden daher nicht ausgeführt.",12,SECONDARY,false),8);
         LinearLayout explain=surface(13);
         add(explain,overline("VERTRAUENSNACHWEIS"),0);
         TextView t=text("Eine lokale Signaturprüfung kann keine Herstellerfreigabe ersetzen. Erst eine vom Fahrzeug bestätigte Autorisierung würde den SFD2-Status ändern.",13,SECONDARY,false);
@@ -377,11 +472,11 @@ public final class Sfd2TrustActivity extends Activity {
         add(into,line,0);
     }
     private void labPage() {
-        intro("ENTWICKLUNG  /  04","Trust Laboratory",
+        intro("ENTWICKLUNG  /  05","Trust Laboratory",
               "Isolierte Signatur- und Authentifizierungsprüfungen.");
         LinearLayout main=layout(false);main.setBackground(gradient());
         padding(main,18,18,18,18);add(content,main,19);
-        IconView flask=new IconView(3,ACCENT);main.addView(flask,params(34,34));
+        IconView flask=new IconView(4,ACCENT);main.addView(flask,params(34,34));
         TextView heading=text("Kryptografischer Prüfstand",19,WHITE,true);
         add(main,heading,13);
         TextView body=text("Ed25519 · ECU-Challenge · Einmal-Nonces · SHA-256-Auftragsbindung · Replay-Schutz",13,SECONDARY,false);
@@ -444,6 +539,10 @@ public final class Sfd2TrustActivity extends Activity {
                 prefs.edit().putString("chain",Base64.encodeToString(bytes,Base64.NO_WRAP)).apply();
             }else if(code==PICK_JWS){
                 message=verifier.loadJws(bytes);tokenImported=true;
+            }else if(code==PICK_SCAN){
+                scanEvidence=Sfd2EvidenceAnalyzer.analyze(bytes);
+                message=scanEvidence.verdict;
+                tab=3;
             }
             stageResult=0;
         }catch(Exception e){
@@ -480,6 +579,15 @@ public final class Sfd2TrustActivity extends Activity {
                 original.drawLine(10,14,18,14,p);
                 original.drawLine(10,18,16,18,p);
             }else if(type==2){
+                Path car=new Path();
+                car.moveTo(4,18); car.lineTo(6,11); car.lineTo(9,8);
+                car.lineTo(19,8); car.lineTo(22,11); car.lineTo(24,18);
+                car.lineTo(24,21); car.lineTo(4,21); car.close();
+                original.drawPath(car,p);
+                original.drawLine(4,14,24,14,p);
+                original.drawCircle(8,18,1.4f,p);
+                original.drawCircle(20,18,1.4f,p);
+            }else if(type==3){
                 original.drawRoundRect(7,7,21,21,3,3,p);
                 original.drawRoundRect(11,11,17,17,1.5f,1.5f,p);
                 for(int n=10;n<=18;n+=4){
