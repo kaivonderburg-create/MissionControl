@@ -1,0 +1,318 @@
+{
+  "schema": 1,
+  "updated": "2026-11-16",
+  "title": "dynamicOS SFD2 Fahrzeugkatalog",
+  "disclaimer": "Quellenbasierte Modellhinweise; kein fahrzeugspezifischer Freigabe- oder SFD2-Nachweis.",
+  "source": "https://carista.com/de/blogs/news/carista-is-first-to-enable-sfd2-customization",
+  "corroboration": "https://wiki.ross-tech.com/wiki/index.php/SFD",
+  "vehicles": [
+    {
+      "brand": "Volkswagen",
+      "model": "Arteon",
+      "code": "3H",
+      "criteria": "ab MJ 2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "Crafter",
+      "code": "SY",
+      "criteria": "ab MJ 2025",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "Caddy",
+      "code": "SB",
+      "criteria": "ab MJ 2025",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "Golf 8",
+      "code": "CD / CG",
+      "criteria": "ab 01.04.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "Polo",
+      "code": "AE1",
+      "criteria": "ab 12.03.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "T-Cross",
+      "code": "D31",
+      "criteria": "Facelift ab 2024; FIN/ECU prüfen",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "Touran",
+      "code": "5T",
+      "criteria": "ab 06.03.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "T-Roc",
+      "code": "D11 / AC8",
+      "criteria": "ab 24.03.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "Taigo",
+      "code": "CS",
+      "criteria": "ab 18.03.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "Tiguan Allspace",
+      "code": "BJ2",
+      "criteria": "ab 19.02.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "Touareg",
+      "code": "RC",
+      "criteria": "Baujahr/ECU prüfen",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "Multivan T7",
+      "code": "ST",
+      "criteria": "PR NI1 oder NI9",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "ID.3",
+      "code": "E12",
+      "criteria": "ab MJ 2025",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "ID.4",
+      "code": "E21",
+      "criteria": "ab 15.01.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "ID.5",
+      "code": "E39",
+      "criteria": "ab 15.01.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Volkswagen",
+      "model": "ID. Buzz",
+      "code": "EB",
+      "criteria": "ab MJ 2025",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "A1",
+      "code": "GB",
+      "criteria": "ab 21.03.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "A3",
+      "code": "8Y",
+      "criteria": "ab MJ 2025; Code in Quellen unterschiedlich",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "A4",
+      "code": "8W",
+      "criteria": "ab MJ 2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "A5",
+      "code": "F5",
+      "criteria": "ab MJ 2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "A6",
+      "code": "4A",
+      "criteria": "ab MJ 2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "A7",
+      "code": "4K",
+      "criteria": "ab MJ 2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "A8",
+      "code": "4N",
+      "criteria": "ab MJ 2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "Q2",
+      "code": "GA",
+      "criteria": "ab 21.03.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "Q3",
+      "code": "F3",
+      "criteria": "ab 25.03.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "Q4",
+      "code": "F4",
+      "criteria": "ab 25.11.2023",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "Q5",
+      "code": "FY",
+      "criteria": "ab MJ 2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "Q7",
+      "code": "4M",
+      "criteria": "ab 14.08.2023",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "Q8",
+      "code": "4M",
+      "criteria": "ab 14.08.2023",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "e-tron",
+      "code": "GE",
+      "criteria": "ab MJ 2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Audi",
+      "model": "e-tron GT",
+      "code": "F8",
+      "criteria": "ab MJ 2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Škoda",
+      "model": "Enyaq",
+      "code": "5A",
+      "criteria": "PR NI1 oder NI9",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Škoda",
+      "model": "Fabia",
+      "code": "PJ",
+      "criteria": "ab MJ 2024; Bezeichnung in Quelle prüfen",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Škoda",
+      "model": "Kamiq",
+      "code": "NW4",
+      "criteria": "ab 29.01.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Škoda",
+      "model": "Scala",
+      "code": "NW1",
+      "criteria": "ab 29.01.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Škoda",
+      "model": "Karoq",
+      "code": "NU",
+      "criteria": "ab 25.03.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "Škoda",
+      "model": "Octavia",
+      "code": "NX",
+      "criteria": "PR GP1",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "SEAT / CUPRA",
+      "model": "Arona",
+      "code": "KJ7",
+      "criteria": "ab 12.02.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "SEAT / CUPRA",
+      "model": "Ateca",
+      "code": "KBP / KHP",
+      "criteria": "PR NI7",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "SEAT / CUPRA",
+      "model": "Born",
+      "code": "K11",
+      "criteria": "ab MJ 2025",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "SEAT / CUPRA",
+      "model": "Formentor",
+      "code": "KM7",
+      "criteria": "ab MJ 2025",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "SEAT / CUPRA",
+      "model": "Ibiza",
+      "code": "KJ1",
+      "criteria": "ab 12.02.2024",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "SEAT / CUPRA",
+      "model": "Leon",
+      "code": "KL",
+      "criteria": "ab MJ 2025",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    },
+    {
+      "brand": "SEAT / CUPRA",
+      "model": "Leon",
+      "code": "KU",
+      "criteria": "ab MJ 2025",
+      "scope": "Modellhinweis – ECU-Status gesondert prüfen"
+    }
+  ]
+}
