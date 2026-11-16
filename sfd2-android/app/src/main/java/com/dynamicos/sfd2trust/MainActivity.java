@@ -175,17 +175,13 @@ public class MainActivity extends Activity {
         TextView count=label(lab.progress()+"/5  Schritte abgeschlossen",25,BLUE,true);
         add(progress,count,9);
         TextView bar=label("● ECU   ● Challenge   ● Token   ● Signatur   ● Anwenden",11,MUTE,false);add(progress,bar,8);
-        buttonRow(progress,"Kompletten Test",()->process("Test: "+labResult(),()->{}),
+        buttonRow(progress,"Kompletten Test",()->process("Alle 8 Laborprüfungen erfolgreich",()->lab.fullTest(vin,ecu,payload)),
                 "Signaturstudio",()->switchPage(1));
         LinearLayout state=card(work,"Virtuelles Steuergerät","Lokale Sitzungsdaten, keine Verbindung mit einem Fahrzeug.");
         TextView data=label(lab.status(),12,WHITE,false);data.setTextIsSelectable(true);data.setLineSpacing(dp(3),1);
         add(state,data,10);
         LinearLayout warn=card(work,"Vertrauensgrenze","Eigene Testschlüssel werden NICHT von realen VW-Steuergeräten anerkannt.");
         add(warn,label("SFD2 Fahrzeugfreigabe: NICHT VORHANDEN",12,Color.rgb(255,183,132),true),7);
-    }
-    private String labResult(){
-        try{return lab.fullTest(vin,ecu,payload);}
-        catch(Exception e){throw new RuntimeException(e.getMessage(),e);}
     }
     private void signer(){
         sectionHead("KRYPTOGRAPHIE","Signaturstudio","Alle Schritte laufen lokal – ohne Browser und ohne Server.");
