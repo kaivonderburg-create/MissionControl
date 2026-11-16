@@ -265,12 +265,14 @@ public final class DiagnosticsActivity extends Activity {
                 text("Für WLAN-Adapter ist Bluetooth nicht erforderlich.",12,SECONDARY,false),11);
         }
         LinearLayout paired=panel("Gekoppelte Geräte","Bluetooth Classic / SPP: direkt auswählbar.",13);
-        if(transports.permitted())refreshPaired();
+        if(transports.permitted()&&options.isEmpty())refreshPaired();
         if(options.isEmpty())add(paired,text("Noch keine gekoppelten Geräte gefunden.",12,SECONDARY,false),12);
         for(ObdLink.Option o:new ArrayList<>(options)){
             add(paired,button(o.name+"   ·   "+o.address,false,()->choose(o)),8);
         }
-        add(paired,button("BLE-Geräte suchen (10 Sekunden)",true,this::scanBle),12);
+        buttons(paired,"Bluetooth aktualisieren",()->{
+            refreshPaired();status="Gekoppelte Geräte aktualisiert";show();
+        },"BLE-Geräte suchen",this::scanBle);
         if(chosen!=null){
             LinearLayout selected=panel("Ausgewählter Adapter",chosen.display(),12);
             buttons(selected,"Verbinden",this::connectSelected,"Auswahl vergessen",()->{
