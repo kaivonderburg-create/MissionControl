@@ -230,7 +230,12 @@ public final class ObdCore {
             if(!decoded.contains(code))decoded.add(code);
         }
         if(decoded.isEmpty())return "Keine Fehlercodes gemeldet";
-        return String.join("\n",decoded);
+        StringBuilder descriptions=new StringBuilder();
+        for(String code:decoded){
+            if(descriptions.length()>0)descriptions.append("\n");
+            descriptions.append(code).append("  ·  ").append(DtcCatalog.describe(code));
+        }
+        return descriptions.toString();
     }
     public synchronized Report readReadiness() throws Exception {
         String raw=send("0101",5000);
