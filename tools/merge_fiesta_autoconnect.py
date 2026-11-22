@@ -364,4 +364,32 @@ assert k.count(touchAttach)==1
 
 proj.write_text(k)
 
-print("Single-APK merge completed; Fiesta and receiver share one applicationId and one APK.")
+# The receiver already receives AA media metadata and playback status via its
+# protobuf transport. Persist a tiny same-process snapshot for the SYNC launcher.
+# This avoids relying on privileged notification access, and never decodes art twice.
+service=src/"java/com/andrerinas/openheadunit/aap/AapService.kt"
+serviceText=service.read_text()
+metadataAnchor="        lastAaMediaMetadata = meta"
+assert serviceText.count(metadataAnchor)==1
+serviceText=serviceText.replace(metadataAnchor,metadataAnchor+'''
+        getSharedPreferences("dynamicos_aa_bridge", MODE_PRIVATE).edit()
+            .putBoolean("connected", true)
+            .putString("title", if (meta.hasSong()) meta.song else "")
+            .putString("artist", if (meta.hasArtist()) meta.artist else "")
+            .apply()''')
+statusAnchor="        lastAaPlaybackIsPlaying = isPlayingFromStatus"
+assert serviceText.count(statusAnchor)==1
+serviceText=serviceText.replace(statusAnchor,statusAnchor+'''
+        getSharedPreferences("dynamicos_aa_bridge", MODE_PRIVATE).edit()
+            .putBoolean("connected", true)
+            .putBoolean("playing", isPlayingFromStatus)
+            .apply()''')
+clearAnchor="        lastAaMediaMetadata = null"
+assert serviceText.count(clearAnchor)==1
+serviceText=serviceText.replace(clearAnchor,clearAnchor+'''
+        getSharedPreferences("dynamicos_aa_bridge", MODE_PRIVATE).edit()
+            .putBoolean("connected", false)
+            .remove("title").remove("artist").remove("playing").apply()''')
+service.write_text(serviceText)
+
+print("Unified SYNC build merged: native Android Auto projection and media metadata bridge.")
