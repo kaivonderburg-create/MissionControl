@@ -40,6 +40,7 @@ public final class LauncherActivity extends Activity {
     private TextView mediaTitleView, mediaArtistView, mediaSourceView;
     private ImageView mediaCoverView;
     private boolean compactAutoMode;
+    private long coverRevisionDisplayed=Long.MIN_VALUE;
     private ImageButton mediaToggleView;
     // Reactive metadata updates avoid timers and expensive full-screen redraws.
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener mediaListener=
@@ -176,6 +177,7 @@ public final class LauncherActivity extends Activity {
         mediaSourceView=null;
         mediaToggleView=null;
         mediaCoverView=null;
+        coverRevisionDisplayed=Long.MIN_VALUE;
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BACK);
@@ -324,6 +326,9 @@ public final class LauncherActivity extends Activity {
     }
     private void refreshCover(MediaController session){
         if(mediaCoverView==null)return;
+        long rev=aaMedia().getLong("art_revision",0L);
+        if(FiestaMediaBridge.isProjectionActive(this) && coverRevisionDisplayed==rev)return;
+        coverRevisionDisplayed=rev;
         android.graphics.Bitmap art=null;
         // The AA receiver decodes art once and writes a 256px cache.
         if(FiestaMediaBridge.isProjectionActive(this)){
