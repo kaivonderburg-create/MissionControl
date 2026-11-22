@@ -31,18 +31,20 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/** Native 1-GB-RAM SYNC shell. One navigation model; no WebView or continuous redraw. */
+/** Native 1-GB-RAM Ford Automotive shell: no WebView, no second video decoder. */
 public final class LauncherActivity extends Activity {
     private static final int BACK = 0xff0b1117, PANEL = 0xff151f28, PANEL_LIFT = 0xff1c2934,
             FORE = 0xfff3f5f6, SECONDARY = 0xff9aaebc, ACCENT = 0xff80c4ea, DIVIDER = 0xff30414b;
     private static final String[] TABS = {"Start","Audio","Telefon","Navigation","System"};
     private LinearLayout root, body;
     private TextView mediaTitleView, mediaArtistView, mediaSourceView;
+    private ImageView mediaCoverView;
+    private boolean compactAutoMode;
     private ImageButton mediaToggleView;
     // Reactive metadata updates avoid timers and expensive full-screen redraws.
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener mediaListener=
         (prefs,key)->{
-            if("title".equals(key)||"artist".equals(key)||"playing".equals(key)){
+            if("title".equals(key)||"artist".equals(key)||"playing".equals(key)||"art_revision".equals(key)){
                 runOnUiThread(this::refreshMediaLabels);
             }
         };
@@ -51,6 +53,7 @@ public final class LauncherActivity extends Activity {
         MediaController session=activeMedia();
         if(mediaTitleView!=null)mediaTitleView.setText(mediaTitle(session));
         if(mediaArtistView!=null)mediaArtistView.setText(mediaArtist(session));
+        if(mediaCoverView!=null)refreshCover(session);
         if(mediaSourceView!=null){
             boolean connected=FiestaMediaBridge.isProjectionActive(this);
             mediaSourceView.setText(connected?"●  ANDROID AUTO AKTIV":"○  SMARTPHONE VERBINDEN");
@@ -146,6 +149,7 @@ public final class LauncherActivity extends Activity {
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN |
                 View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         if(b!=null)page=b.getInt("page",0);
+        compactAutoMode=getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getBoolean("home_auto_compact",false);
         if(!getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getBoolean("complete",false)){
             open(SetupActivity.class);
             finish();
@@ -171,15 +175,18 @@ public final class LauncherActivity extends Activity {
         mediaArtistView=null;
         mediaSourceView=null;
         mediaToggleView=null;
+        mediaCoverView=null;
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BACK);
         root.setPadding(dp(20),dp(6),dp(20),dp(9));
         LinearLayout status = new LinearLayout(this);
         status.setGravity(Gravity.CENTER_VERTICAL);
-        status.addView(text("SYNC",19,true,FORE),new LinearLayout.LayoutParams(-2,dp(44)));
-        TextView identity = text("  /  dynamicOS",12,false,SECONDARY);
-        status.addView(identity,new LinearLayout.LayoutParams(0,dp(44),1));
+        status.addView(text("dynamicOS",19,true,FORE),new LinearLayout.LayoutParams(-2,dp(44)));
+        TextView identity = text("/ Ford Automotive",13,false,SECONDARY);
+        LinearLayout.LayoutParams identityLp=new LinearLayout.LayoutParams(0,dp(44),1f);
+        identityLp.leftMargin=dp(4);
+        status.addView(identity,identityLp);
         TextView time = text(new SimpleDateFormat("HH:mm",Locale.GERMANY).format(new Date()),17,false,FORE);
         time.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         status.addView(time,new LinearLayout.LayoutParams(dp(90),dp(44)));
@@ -296,40 +303,133 @@ public final class LauncherActivity extends Activity {
         }
     }
 
+    private void setHomeMode(boolean compact){
+        compactAutoMode=compact;
+        getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit()
+            .putBoolean("home_auto_compact",compact).apply();
+        if(page==0)draw();
+    }
+    private View coverPlaceholder(){
+        LinearLayout tile=new LinearLayout(this);
+        tile.setOrientation(LinearLayout.VERTICAL);
+        tile.setGravity(Gravity.CENTER);
+        tile.setBackground(background(0xff253746,8));
+        TextView mark=text("♫",50,false,ACCENT);
+        mark.setGravity(Gravity.CENTER);
+        tile.addView(mark,new LinearLayout.LayoutParams(-1,0,1f));
+        TextView caption=text("FORD AUDIO",10,true,SECONDARY);
+        caption.setGravity(Gravity.CENTER);
+        tile.addView(caption,new LinearLayout.LayoutParams(-1,dp(28)));
+        return tile;
+    }
+    private void refreshCover(MediaController session){
+        if(mediaCoverView==null)return;
+        android.graphics.Bitmap art=null;
+        // The AA receiver decodes art once and writes a 256px cache.
+        if(FiestaMediaBridge.isProjectionActive(this)){
+            java.io.File cover=new java.io.File(getCacheDir(),"dynamicos_aa_cover.jpg");
+            if(cover.isFile()){
+                try{
+                    android.graphics.BitmapFactory.Options opts=new android.graphics.BitmapFactory.Options();
+                    opts.inSampleSize=1;opts.inPreferredConfig=android.graphics.Bitmap.Config.RGB_565;
+                    art=android.graphics.BitmapFactory.decodeFile(cover.getAbsolutePath(),opts);
+                }catch(Exception ignored){}
+            }
+        }else if(session!=null && session.getMetadata()!=null){
+            art=session.getMetadata().getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART);
+            if(art==null)art=session.getMetadata().getBitmap(MediaMetadata.METADATA_KEY_ART);
+        }
+        if(art!=null){
+            mediaCoverView.setImageBitmap(art);
+            mediaCoverView.setBackground(background(PANEL_LIFT,8));
+        }else{
+            mediaCoverView.setImageResource(android.R.drawable.ic_menu_gallery);
+            mediaCoverView.setColorFilter(ACCENT);
+            mediaCoverView.setBackground(background(0xff253746,8));
+        }
+    }
     private void home(){
         LinearLayout horizontal=new LinearLayout(this);
         horizontal.setGravity(Gravity.CENTER_VERTICAL);
         body.addView(horizontal,new LinearLayout.LayoutParams(-1,0,1f));
         LinearLayout primary=new LinearLayout(this);
         primary.setOrientation(LinearLayout.VERTICAL);
-        primary.setPadding(dp(20),dp(15),dp(20),dp(15));
+        primary.setPadding(dp(17),dp(12),dp(17),dp(12));
         primary.setBackground(background(PANEL,8));
         LinearLayout.LayoutParams primaryLp=new LinearLayout.LayoutParams(0,-1,.60f);
-        primaryLp.rightMargin=dp(9);
+        primaryLp.rightMargin=dp(10);
         horizontal.addView(primary,primaryLp);
-        TextView heading=text("JETZT WIEDERGEBEN",12,true,ACCENT);
-        primary.addView(heading);
+        LinearLayout modes=new LinearLayout(this);
+        modes.setGravity(Gravity.CENTER_VERTICAL);
+        primary.addView(modes,new LinearLayout.LayoutParams(-1,dp(40)));
+        TextView kicker=text(compactAutoMode?"ANDROID AUTO  /  KOMPAKT":"JETZT WIEDERGEBEN",12,true,ACCENT);
+        modes.addView(kicker,new LinearLayout.LayoutParams(0,-1,1));
+        TextView mediaMode=text("MEDIEN",12,!compactAutoMode,compactAutoMode?SECONDARY:FORE);
+        mediaMode.setGravity(Gravity.CENTER);
+        mediaMode.setPadding(dp(9),0,dp(9),0);
+        if(!compactAutoMode)mediaMode.setBackground(background(PANEL_LIFT,6));
+        mediaMode.setOnClickListener(v->setHomeMode(false));
+        modes.addView(mediaMode,new LinearLayout.LayoutParams(dp(76),dp(38)));
+        TextView autoMode=text("AUTO",12,compactAutoMode,compactAutoMode?FORE:SECONDARY);
+        autoMode.setGravity(Gravity.CENTER);
+        autoMode.setPadding(dp(8),0,dp(8),0);
+        if(compactAutoMode)autoMode.setBackground(background(PANEL_LIFT,6));
+        autoMode.setOnClickListener(v->setHomeMode(true));
+        modes.addView(autoMode,new LinearLayout.LayoutParams(dp(66),dp(38)));
         MediaController session=activeMedia();
-        TextView track=text(mediaTitle(session),22,true,FORE);
-        mediaTitleView=track;
-        LinearLayout.LayoutParams trackLp=new LinearLayout.LayoutParams(-1,0,1f);
-        trackLp.topMargin=dp(10);
-        primary.addView(track,trackLp);
-        TextView artistView=text(mediaArtist(session),13,false,SECONDARY);
-        mediaArtistView=artistView;
-        primary.addView(artistView);
-        TextView source=text(FiestaMediaBridge.isProjectionActive(this)
-            ?"●  ANDROID AUTO VERBUNDEN":"○  SMARTPHONE VERBINDEN",11,true,
-            FiestaMediaBridge.isProjectionActive(this)?0xff7cc9b0:SECONDARY);
-        LinearLayout.LayoutParams sourceParams=new LinearLayout.LayoutParams(-1,dp(28));
-        sourceParams.topMargin=dp(7);
-        primary.addView(source,sourceParams);
-        mediaSourceView=source;
-        LinearLayout commands=new LinearLayout(this);
-        LinearLayout.LayoutParams cl=new LinearLayout.LayoutParams(-1,dp(58));
-        cl.topMargin=dp(12);
-        primary.addView(commands,cl);
-        playbackButtons(commands,session);
+        if(compactAutoMode){
+            // Genuine live projection stays in its single native AA renderer.
+            // This companion card only displays its status, so it costs no GPU video pass.
+            LinearLayout compact=new LinearLayout(this);
+            compact.setOrientation(LinearLayout.VERTICAL);
+            compact.setGravity(Gravity.CENTER_VERTICAL);
+            compact.setPadding(dp(7),dp(8),dp(7),dp(8));
+            primary.addView(compact,new LinearLayout.LayoutParams(-1,0,1f));
+            boolean active=FiestaMediaBridge.isProjectionActive(this);
+            TextView state=text(active?"●  SMARTPHONE VERBUNDEN":"○  KEINE PROJEKTION",12,true,
+                active?0xff7cc9b0:SECONDARY);
+            compact.addView(state,new LinearLayout.LayoutParams(-1,dp(30)));
+            TextView headline=text(active?"Android Auto":"Smartphone verbinden",25,true,FORE);
+            compact.addView(headline,new LinearLayout.LayoutParams(-1,dp(55)));
+            TextView copy=text(active?mediaTitle(session):"Navigation, Telefon und Apps",15,false,SECONDARY);
+            mediaTitleView=active?copy:null;
+            compact.addView(copy,new LinearLayout.LayoutParams(-1,dp(35)));
+            TextView openButton=control(active?"PROJEKTION ÖFFNEN":"ANDROID AUTO STARTEN",this::openAuto);
+            LinearLayout.LayoutParams op=new LinearLayout.LayoutParams(-1,dp(57));
+            op.topMargin=dp(18);
+            compact.addView(openButton,op);
+        }else{
+            LinearLayout artworkAndTrack=new LinearLayout(this);
+            artworkAndTrack.setGravity(Gravity.CENTER_VERTICAL);
+            LinearLayout.LayoutParams main=new LinearLayout.LayoutParams(-1,0,1f);
+            main.topMargin=dp(8);
+            primary.addView(artworkAndTrack,main);
+            ImageView cover=new ImageView(this);
+            cover.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            cover.setContentDescription("Albumcover");
+            mediaCoverView=cover;
+            LinearLayout.LayoutParams coverLp=new LinearLayout.LayoutParams(dp(155),dp(155));
+            coverLp.rightMargin=dp(16);
+            artworkAndTrack.addView(cover,coverLp);
+            LinearLayout trackDetails=new LinearLayout(this);
+            trackDetails.setOrientation(LinearLayout.VERTICAL);
+            trackDetails.setGravity(Gravity.CENTER_VERTICAL);
+            artworkAndTrack.addView(trackDetails,new LinearLayout.LayoutParams(0,-1,1f));
+            mediaTitleView=text(mediaTitle(session),20,true,FORE);
+            trackDetails.addView(mediaTitleView,new LinearLayout.LayoutParams(-1,dp(48)));
+            mediaArtistView=text(mediaArtist(session),13,false,SECONDARY);
+            trackDetails.addView(mediaArtistView,new LinearLayout.LayoutParams(-1,dp(30)));
+            mediaSourceView=text(FiestaMediaBridge.isProjectionActive(this)?
+                "●  ANDROID AUTO AKTIV":"○  SMARTPHONE VERBINDEN",11,true,
+                FiestaMediaBridge.isProjectionActive(this)?0xff7cc9b0:SECONDARY);
+            trackDetails.addView(mediaSourceView,new LinearLayout.LayoutParams(-1,dp(35)));
+            refreshCover(session);
+            LinearLayout commands=new LinearLayout(this);
+            LinearLayout.LayoutParams cl=new LinearLayout.LayoutParams(-1,dp(60));
+            cl.topMargin=dp(8);
+            primary.addView(commands,cl);
+            playbackButtons(commands,session);
+        }
         LinearLayout secondary=new LinearLayout(this);
         secondary.setOrientation(LinearLayout.VERTICAL);
         horizontal.addView(secondary,new LinearLayout.LayoutParams(0,-1,.40f));
