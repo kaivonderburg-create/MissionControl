@@ -175,6 +175,15 @@ dock=r'''
         })
         host.addView(panel, FrameLayout.LayoutParams(fiestaPanelWidth,
             FrameLayout.LayoutParams.MATCH_PARENT, Gravity.RIGHT))
+        val toggle = fiestaAction("▣") {
+            fiestaSplitEnabled = !fiestaSplitEnabled
+            applyFiestaSplitLayout()
+        }
+        host.addView(toggle, FrameLayout.LayoutParams(
+            (resources.displayMetrics.density * 44).toInt(),
+            (resources.displayMetrics.density * 44).toInt(),
+            Gravity.LEFT or Gravity.TOP))
+        toggle.bringToFront()
     }
     private fun applyFiestaSplitLayout() {
         val host = findViewById<FrameLayout>(R.id.container) ?: return
