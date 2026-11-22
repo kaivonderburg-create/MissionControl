@@ -37,7 +37,8 @@ public final class LauncherActivity extends Activity {
             FORE = 0xfff3f5f6, SECONDARY = 0xff9aaebc, ACCENT = 0xff80c4ea, DIVIDER = 0xff30414b;
     private static final String[] TABS = {"Start","Audio","Telefon","Navigation","System"};
     private LinearLayout root, body;
-    private TextView mediaTitleView, mediaArtistView;
+    private TextView mediaTitleView, mediaArtistView, mediaSourceView;
+    private ImageButton mediaToggleView;
     // Reactive metadata updates avoid timers and expensive full-screen redraws.
     private final android.content.SharedPreferences.OnSharedPreferenceChangeListener mediaListener=
         (prefs,key)->{
@@ -46,10 +47,23 @@ public final class LauncherActivity extends Activity {
             }
         };
     private void refreshMediaLabels(){
-        if(isFinishing())return;
+        if(isFinishing() || isDestroyed())return;
         MediaController session=activeMedia();
         if(mediaTitleView!=null)mediaTitleView.setText(mediaTitle(session));
         if(mediaArtistView!=null)mediaArtistView.setText(mediaArtist(session));
+        if(mediaSourceView!=null){
+            boolean connected=FiestaMediaBridge.isProjectionActive(this);
+            mediaSourceView.setText(connected?"●  ANDROID AUTO AKTIV":"○  SMARTPHONE VERBINDEN");
+            mediaSourceView.setTextColor(connected?0xff7cc9b0:SECONDARY);
+        }
+        if(mediaToggleView!=null){
+            boolean playing=FiestaMediaBridge.isProjectionActive(this)
+                ?aaMedia().getBoolean("playing",false)
+                :session!=null && session.getPlaybackState()!=null &&
+                 session.getPlaybackState().getState()==PlaybackState.STATE_PLAYING;
+            mediaToggleView.setImageResource(playing?android.R.drawable.ic_media_pause:android.R.drawable.ic_media_play);
+            mediaToggleView.setContentDescription(playing?"Pause":"Wiedergabe");
+        }
     }
     private int page;
     private int dp(float value) { return Math.round(value * getResources().getDisplayMetrics().density); }
@@ -143,6 +157,7 @@ public final class LauncherActivity extends Activity {
         super.onResume();
         if(root!=null)draw();
         aaMedia().registerOnSharedPreferenceChangeListener(mediaListener);
+        refreshMediaLabels();
     }
     @Override protected void onPause() {
         aaMedia().unregisterOnSharedPreferenceChangeListener(mediaListener);
@@ -154,6 +169,8 @@ public final class LauncherActivity extends Activity {
     private void draw() {
         mediaTitleView=null;
         mediaArtistView=null;
+        mediaSourceView=null;
+        mediaToggleView=null;
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BACK);
@@ -258,6 +275,7 @@ public final class LauncherActivity extends Activity {
         button.setContentDescription(key==KeyEvent.KEYCODE_MEDIA_PREVIOUS?"Vorheriger Titel":
             key==KeyEvent.KEYCODE_MEDIA_NEXT?"Nächster Titel":playing?"Pause":"Wiedergabe");
         button.setOnClickListener(v->mediaCommand(key));
+        if(key==KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)mediaToggleView=button;
         return button;
     }
     private void playbackButtons(LinearLayout target,MediaController session){
@@ -306,6 +324,7 @@ public final class LauncherActivity extends Activity {
         LinearLayout.LayoutParams sourceParams=new LinearLayout.LayoutParams(-1,dp(28));
         sourceParams.topMargin=dp(7);
         primary.addView(source,sourceParams);
+        mediaSourceView=source;
         LinearLayout commands=new LinearLayout(this);
         LinearLayout.LayoutParams cl=new LinearLayout.LayoutParams(-1,dp(58));
         cl.topMargin=dp(12);
@@ -356,7 +375,7 @@ public final class LauncherActivity extends Activity {
             if(state!=null && state.getState()==PlaybackState.STATE_PLAYING)t.pause();
             else t.play();
         }
-        draw();
+        refreshMediaLabels();
     }
     private void music(){
         heading("Audio","Medien von Android Auto und installierten Anwendungen");
