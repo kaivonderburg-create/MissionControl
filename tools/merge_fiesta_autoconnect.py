@@ -310,127 +310,8 @@ for folder in ("values","values-de"):
         s=re.sub(r'(<string name="title">).*?(</string>)',r'\1dynamicOS Fiesta\2',s)
         path.write_text(s)
 
-# Embed native receiver connection status in the Fiesta visual language.
-# Keep the real receiver's pairing controls and protocol engine intact.
-receiverMain=src/"java/com/andrerinas/openheadunit/main/MainActivity.kt"
-receiverText=receiverMain.read_text()
-mainAnchor="        setContentView(R.layout.activity_main)"
-assert receiverText.count(mainAnchor)==1
-receiverText=receiverText.replace(mainAnchor,mainAnchor+"\n        installFiestaConnectionShell()")
-hook="    override fun onCreate(savedInstanceState: Bundle?) {"
-assert receiverText.count(hook)==1
-receiverUi=r'''
-    // Native Fiesta shell around the real receiver HomeFragment.
-    // The connection button delegates to the receiver's own click handler,
-    // not another Android app or a mocked wireless connection.
-    private fun installFiestaConnectionShell() {
-        val host=findViewById<FrameLayout>(R.id.root) ?: return
-        val density=resources.displayMetrics.density
-        fun dp(n:Int)=(density*n).toInt()
-        val dashboard=android.widget.LinearLayout(this).apply {
-            orientation=android.widget.LinearLayout.VERTICAL
-            setPadding(dp(22),dp(14),dp(22),dp(14))
-            setBackgroundColor(Color.rgb(7,19,38))
-            isClickable=true
-        }
-        val header=android.widget.LinearLayout(this).apply {
-            orientation=android.widget.LinearLayout.HORIZONTAL
-            gravity=android.view.Gravity.CENTER_VERTICAL
-        }
-        val brand=TextView(this).apply {
-            text="dynamicOS    FIESTA"
-            setTextColor(Color.WHITE)
-            textSize=20f
-            typeface=android.graphics.Typeface.DEFAULT_BOLD
-        }
-        header.addView(brand,android.widget.LinearLayout.LayoutParams(0,dp(45),1f))
-        val home=TextView(this).apply {
-            text="⌂  Startseite"
-            textSize=15f
-            setTextColor(Color.rgb(117,198,255))
-            gravity=android.view.Gravity.CENTER
-            setPadding(dp(14),0,dp(14),0)
-            setOnClickListener {
-                startActivity(Intent(this@MainActivity,de.vd3.fiesta.LauncherActivity::class.java)
-                    .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NO_ANIMATION))
-                overridePendingTransition(0,0)
-            }
-        }
-        header.addView(home,android.widget.LinearLayout.LayoutParams(-2,dp(44)))
-        dashboard.addView(header)
-
-        val body=android.widget.LinearLayout(this).apply {
-            orientation=android.widget.LinearLayout.HORIZONTAL
-            gravity=android.view.Gravity.CENTER_VERTICAL
-        }
-        val info=android.widget.LinearLayout(this).apply {
-            orientation=android.widget.LinearLayout.VERTICAL
-            gravity=android.view.Gravity.CENTER_VERTICAL
-        }
-        fun caption(value:String,size:Float,color:Int,bold:Boolean=false):TextView =
-            TextView(this).apply {
-                text=value;textSize=size;setTextColor(color)
-                if(bold)typeface=android.graphics.Typeface.DEFAULT_BOLD
-                setPadding(0,dp(4),0,dp(4))
-            }
-        info.addView(caption("ANDROID AUTO",12f,Color.rgb(89,184,255),true))
-        info.addView(caption("Smartphone verbinden",26f,Color.WHITE,true))
-        info.addView(caption("Android Auto kabellos und direkt im Fiesta nutzen.",15f,
-            Color.rgb(171,196,218)))
-        val connect=TextView(this).apply {
-            text="Verbinden   ›"
-            setTextColor(Color.WHITE)
-            textSize=19f
-            typeface=android.graphics.Typeface.DEFAULT_BOLD
-            gravity=android.view.Gravity.CENTER
-            setBackgroundColor(Color.rgb(39,136,231))
-            setOnClickListener {
-                val native=findViewById<View>(R.id.home_primary_action)
-                if(native!=null&&native.isEnabled)native.performClick()
-                else Toast.makeText(this@MainActivity,
-                    "Empfänger initialisiert noch oder die Verbindungsart ist nicht verfügbar",
-                    Toast.LENGTH_LONG).show()
-            }
-        }
-        val cp=android.widget.LinearLayout.LayoutParams(dp(220),dp(56))
-        cp.topMargin=dp(18)
-        info.addView(connect,cp)
-        val nativeMode=TextView(this).apply {
-            text="Weitere Verbindungsarten"
-            textSize=14f
-            setTextColor(Color.rgb(169,208,243))
-            setPadding(0,dp(14),0,dp(8))
-            setOnClickListener { dashboard.visibility=View.GONE }
-        }
-        info.addView(nativeMode)
-        body.addView(info,android.widget.LinearLayout.LayoutParams(0,-2,0.62f))
-        val car=ImageView(this).apply {
-            setImageResource(R.drawable.fiesta_graphite)
-            scaleType=ImageView.ScaleType.FIT_CENTER
-        }
-        body.addView(car,android.widget.LinearLayout.LayoutParams(0,-1,0.38f))
-        dashboard.addView(body,android.widget.LinearLayout.LayoutParams(-1,0,1f))
-
-        val bottom=android.widget.LinearLayout(this).apply {
-            orientation=android.widget.LinearLayout.HORIZONTAL
-            gravity=android.view.Gravity.CENTER_VERTICAL
-        }
-        val status=TextView(this).apply {
-            text="FIESTA UNIFIED     •     Telefon     •     Navigation     •     Medien"
-            textSize=13f
-            setTextColor(Color.rgb(168,195,215))
-            gravity=android.view.Gravity.CENTER_VERTICAL
-        }
-        bottom.addView(status,android.widget.LinearLayout.LayoutParams(-1,dp(48)))
-        dashboard.addView(bottom)
-        val anchor=findViewById<View>(R.id.main_content)
-        val place=if(anchor!=null)host.indexOfChild(anchor)+1 else host.childCount
-        host.addView(dashboard,place,FrameLayout.LayoutParams(-1,-1))
-    }
-
-'''
-receiverText=receiverText.replace(hook,receiverUi+hook)
-receiverMain.write_text(receiverText)
+# Keep the receiver's native pairing UI. The previous full-screen shell
+# duplicated and obscured connection controls rather than integrating them.
 
 # Install a lightweight Ford-inspired control dock over the projection, keeping the
 # original decoder and transport in the SAME Android application.
@@ -455,7 +336,7 @@ dock=r'''
             setBackgroundColor(Color.rgb(22,37,49))
             contentDescription="Zur SYNC-Startseite"
             setOnClickListener {
-                startActivity(Intent(this,de.vd3.fiesta.LauncherActivity::class.java)
+                startActivity(Intent(this@AapProjectionActivity,de.vd3.fiesta.LauncherActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NO_ANIMATION))
                 overridePendingTransition(0,0)
             }
