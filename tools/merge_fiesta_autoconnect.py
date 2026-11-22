@@ -304,7 +304,10 @@ launcher=launcher[:start]+'''    private void music(){
 (javadir/"MediaAccessService.java").write_text(
     (fiesta/"java/de/vd3/fiesta/MediaAccessService.java").read_text())
 
-(javadir/"LauncherActivity.java").write_text(launcher)
+# The maintained source is the single authority for the SYNC home shell.
+# Keep historical generator above only for backwards reference until removed.
+launcher=Path("tools/fiesta/LauncherActivity.java").read_text(encoding="utf-8")
+(javadir/"LauncherActivity.java").write_text(launcher,encoding="utf-8")
 (src/"res/drawable-nodpi").mkdir(parents=True,exist_ok=True)
 shutil.copy2(fiesta/"res/drawable-nodpi/fiesta_graphite.png",src/"res/drawable-nodpi/fiesta_graphite.png")
 
@@ -581,8 +584,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "2.1.0-unified"')
-g=g.replace('versionCode = 122','versionCode = 210')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "2.2.0-sync"')
+g=g.replace('versionCode = 122','versionCode = 220')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
