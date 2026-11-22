@@ -274,6 +274,7 @@ addon='''\n        <!-- One installed app: native Fiesta HOME, setup, and Androi
             android:theme="@android:style/Theme.Material.NoActionBar"
             android:screenOrientation="landscape" />
         <activity android:name="de.vd3.fiesta.WirelessSetupActivity" android:exported="false"
+            android:theme="@android:style/Theme.Material.NoActionBar"
             android:screenOrientation="landscape" />
         <service android:name="de.vd3.fiesta.MediaAccessService"
             android:label="dynamicOS Mediensteuerung"
@@ -281,7 +282,9 @@ addon='''\n        <!-- One installed app: native Fiesta HOME, setup, and Androi
             android:exported="false">
             <intent-filter><action android:name="android.service.notification.NotificationListenerService"/></intent-filter>
         </service>
-        <activity android:name="de.vd3.fiesta.MediaHardwareActivity" android:exported="false" android:screenOrientation="landscape" />
+        <activity android:name="de.vd3.fiesta.MediaHardwareActivity" android:exported="false"
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:screenOrientation="landscape" />
         <activity android:name="de.vd3.fiesta.MainActivity" android:exported="false"
             android:screenOrientation="landscape" />
 '''
