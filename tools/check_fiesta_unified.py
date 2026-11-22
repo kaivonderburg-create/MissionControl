@@ -22,7 +22,7 @@ assert 'getActiveSessions(' in ui and 'getTransportControls()' in ui, "Media ses
 assert 'MediaAccessService' in xml and 'BIND_NOTIFICATION_LISTENER_SERVICE' in xml, "Media permission component missing"
 assert 'LauncherActivity' in xml, "Unified HOME target missing"
 assert 'installFiestaDock()' in aa, "Native AA interface not wired"
-assert 'installFiestaDock()' in aa and 'Zur SYNC-Startseite' in aa, "Compact SYNC home affordance missing"
+assert 'installFiestaDock()' in aa and 'Zur Ford-Automotive-Startseite' in aa, "Compact SYNC home affordance missing"
 assert 'applyFiestaSplitLayout()' not in aa, "Legacy AA split overlay must not intercept touch"
 assert 'showFiestaMedia()' not in aa, "Legacy modal media dialog still installed"
 assert 'private View row(String title, String description, Runnable action)' in ui, "Descriptive two-line menu cells missing"
