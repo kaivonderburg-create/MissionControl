@@ -358,6 +358,7 @@ filter_end=m.index('</intent-filter>',filter_start)+len('</intent-filter>')
 m=m[:filter_start]+m[filter_end:]
 addon='''\n        <!-- One installed app: native Fiesta HOME, setup, and Android Auto receiver. -->
         <activity android:name="de.vd3.fiesta.LauncherActivity" android:exported="true"
+            android:theme="@android:style/Theme.Material.NoActionBar"
             android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -370,6 +371,7 @@ addon='''\n        <!-- One installed app: native Fiesta HOME, setup, and Androi
             </intent-filter>
         </activity>
         <activity android:name="de.vd3.fiesta.SetupActivity" android:exported="false"
+            android:theme="@android:style/Theme.Material.NoActionBar"
             android:screenOrientation="landscape" />
         <activity android:name="de.vd3.fiesta.WirelessSetupActivity" android:exported="false"
             android:screenOrientation="landscape" />
