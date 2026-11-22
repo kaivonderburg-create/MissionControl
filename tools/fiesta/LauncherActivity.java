@@ -21,6 +21,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.andrerinas.openheadunit.R;
@@ -72,13 +73,25 @@ public final class LauncherActivity extends Activity {
         t.setContentDescription(label);
         return t;
     }
-    private TextView row(String title, String description, Runnable action) {
-        TextView t = control(title,action);
-        t.setGravity(Gravity.CENTER_VERTICAL);
-        t.setPadding(dp(17),dp(9),dp(14),dp(9));
-        t.setMinHeight(dp(54));
-        t.setContentDescription(title + ": " + description);
-        return t;
+    /** Accessible two-line menu cell. No empty bars or nonfunctional actions. */
+    private View row(String title, String description, Runnable action) {
+        LinearLayout cell=new LinearLayout(this);
+        cell.setOrientation(LinearLayout.HORIZONTAL);
+        cell.setGravity(Gravity.CENTER_VERTICAL);
+        cell.setPadding(dp(17),dp(7),dp(12),dp(7));
+        cell.setBackground(background(PANEL,7));
+        LinearLayout copy=new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        copy.addView(text(title,16,true,FORE),new LinearLayout.LayoutParams(-1,dp(26)));
+        copy.addView(text(description,12,false,SECONDARY),new LinearLayout.LayoutParams(-1,dp(21)));
+        cell.addView(copy,new LinearLayout.LayoutParams(0,dp(48),1f));
+        TextView chevron=text("›",23,false,ACCENT);
+        chevron.setGravity(Gravity.CENTER);
+        cell.addView(chevron,new LinearLayout.LayoutParams(dp(30),dp(48)));
+        cell.setMinimumHeight(dp(62));
+        cell.setOnClickListener(v->action.run());
+        cell.setContentDescription(title+". "+description);
+        return cell;
     }
     private void open(Class<?> activity) {
         try {
@@ -134,7 +147,15 @@ public final class LauncherActivity extends Activity {
         body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
         body.setPadding(0,dp(13),0,dp(10));
-        root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
+        if(page==0){
+            root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
+        }else{
+            ScrollView scroll=new ScrollView(this);
+            scroll.setFillViewport(true);
+            scroll.setVerticalScrollBarEnabled(false);
+            scroll.addView(body,new ScrollView.LayoutParams(-1,-2));
+            root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        }
         if(page==0)home();
         else if(page==1)music();
         else if(page==2)phone();
