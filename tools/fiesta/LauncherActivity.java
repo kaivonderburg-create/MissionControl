@@ -184,11 +184,8 @@ public final class LauncherActivity extends Activity {
         root.setPadding(dp(20),dp(6),dp(20),dp(9));
         LinearLayout status = new LinearLayout(this);
         status.setGravity(Gravity.CENTER_VERTICAL);
-        status.addView(text("dynamicOS",19,true,FORE),new LinearLayout.LayoutParams(-2,dp(44)));
-        TextView identity = text("/ Ford Automotive",13,false,SECONDARY);
-        LinearLayout.LayoutParams identityLp=new LinearLayout.LayoutParams(0,dp(44),1f);
-        identityLp.leftMargin=dp(4);
-        status.addView(identity,identityLp);
+        status.addView(text("dynamicOS/ Ford Automotive",19,true,FORE),
+            new LinearLayout.LayoutParams(0,dp(44),1f));
         TextView time = text(new SimpleDateFormat("HH:mm",Locale.GERMANY).format(new Date()),17,false,FORE);
         time.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
         status.addView(time,new LinearLayout.LayoutParams(dp(90),dp(44)));
