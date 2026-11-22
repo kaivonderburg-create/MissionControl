@@ -15,8 +15,12 @@ jobs:
         run: |
           git clone https://github.com/andreknieriem/open-headunit.git receiver
           git -C receiver checkout --detach ae74788d8312dd7a735775ddc21370f1741a7af1
+      - name: Validate integration script syntax
+        run: python3 -m py_compile tools/merge_fiesta_autoconnect.py tools/check_fiesta_unified.py
       - name: Integrate Fiesta into receiver source (one application)
         run: python3 tools/merge_fiesta_autoconnect.py
+      - name: Verify unified routing, media wiring and touch boundaries
+        run: python3 tools/check_fiesta_unified.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
