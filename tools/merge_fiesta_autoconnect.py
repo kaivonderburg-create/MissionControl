@@ -442,214 +442,44 @@ k=k.replace(anchor,anchor+"\n        installFiestaDock()")
 anchor2="    private enum class OverlayState { STARTING, RECONNECTING, HIDDEN }"
 assert k.count(anchor2)==1
 dock=r'''
-    // One video renderer, one Fiesta system shell. Never layer large floating
-    // panels on top of Android Auto: in combined mode the frame has dedicated space.
-    private var fiestaViewMode = 1
-    private var fiestaShell: LinearLayout? = null
-    private var fiestaNav: LinearLayout? = null
-    private var fiestaSwitcher: TextView? = null
-    private fun fd(v: Int) = (resources.displayMetrics.density * v).toInt()
-    private fun ft(label: String, size: Float, strong: Boolean=false): TextView =
-        TextView(this).apply {
-            text=label;textSize=size;setTextColor(Color.WHITE)
-            gravity=Gravity.CENTER_VERTICAL
-            setPadding(fd(12),fd(7),fd(12),fd(7))
-            if(strong)typeface=android.graphics.Typeface.DEFAULT_BOLD
-            maxLines=2
-        }
-    private fun clickText(label: String, run: () -> Unit): TextView =
-        ft(label,15f,true).apply {
-            gravity=Gravity.CENTER
-            setOnClickListener { run() }
-        }
-    private fun fiestaMediaKey(code: Int) {
-        // AA audio runs on the phone. Local AudioManager dispatch targets the
-        // headunit instead, so send transport keys through the active AA session.
-        if (commManager.connectionState.value !is CommManager.ConnectionState.TransportStarted) {
-            Toast.makeText(this,"Android Auto nicht verbunden",Toast.LENGTH_SHORT).show()
-            return
-        }
-        val t=android.os.SystemClock.uptimeMillis()
-        commManager.sendKey(code,true,t,"projection")
-        commManager.sendKey(code,false,t,"projection")
-    }
+    // A single compact SYNC home affordance. AA owns the full projection surface
+    // and receives all native touch events. No split panes or modal media controls.
     private fun installFiestaDock() {
         val host=findViewById<FrameLayout>(R.id.container) ?: return
-        fiestaViewMode=getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getInt("viewmode",0)
-        val shell=LinearLayout(this).apply {
-            orientation=LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(8,20,33))
-        }
-        fiestaShell=shell
-        val left=LinearLayout(this).apply {
-            orientation=LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(10,28,46))
-            setPadding(fd(15),fd(12),fd(15),fd(9))
-        }
-        val statusBar=LinearLayout(this).apply {
-            orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
-        }
-        statusBar.addView(ft("dynamicOS",19f,true),
-            LinearLayout.LayoutParams(0,fd(43),1f))
-        val time=ft(java.text.SimpleDateFormat("HH:mm",java.util.Locale.GERMANY)
-            .format(java.util.Date()),15f,true).apply { gravity=Gravity.RIGHT or Gravity.CENTER_VERTICAL }
-        statusBar.addView(time)
-        left.addView(statusBar)
-        left.addView(ft("FIESTA  •  2015",12f,true))
-        val carPanel=FrameLayout(this).apply {
-            background=android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(26,62,94),Color.rgb(9,28,45))
-            ).apply { cornerRadius=fd(14).toFloat() }
-        }
-        val photo=ImageView(this).apply {
-            setImageResource(com.andrerinas.openheadunit.R.drawable.fiesta_graphite)
-            scaleType=ImageView.ScaleType.FIT_CENTER
-            setPadding(fd(8),fd(8),fd(8),fd(8))
-        }
-        carPanel.addView(photo,FrameLayout.LayoutParams(-1,-1))
-        left.addView(carPanel,LinearLayout.LayoutParams(-1,0,1f).apply {
-            topMargin=fd(9);bottomMargin=fd(8)
-        })
-        val carName=ft("Ford Fiesta Mk7",17f,true)
-        left.addView(carName)
-        left.addView(ft("W-S 107  ·  Graphitgrau",12f))
-        val separator=View(this).apply{setBackgroundColor(Color.rgb(36,76,102))}
-        left.addView(separator,LinearLayout.LayoutParams(-1,fd(1)).apply{
-            topMargin=fd(9);bottomMargin=fd(9)
-        })
-        val connection=ft(if(commManager.isConnected)
-            "●  Android Auto aktiv" else "○  Smartphone verbinden",13f,true).apply {
-            setTextColor(Color.rgb(119,209,174))
-            setOnClickListener { showFiestaCommunication() }
-        }
-        left.addView(connection)
-        val actions=LinearLayout(this).apply {
-            orientation=LinearLayout.HORIZONTAL
-            gravity=Gravity.CENTER_VERTICAL
-        }
-        actions.addView(clickText("❮") { fiestaMediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
-            LinearLayout.LayoutParams(0,fd(42),1f))
-        actions.addView(clickText("▶Ⅱ") { fiestaMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
-            LinearLayout.LayoutParams(0,fd(42),1f))
-        actions.addView(clickText("❯") { fiestaMediaKey(KeyEvent.KEYCODE_MEDIA_NEXT) },
-            LinearLayout.LayoutParams(0,fd(42),1f))
-        left.addView(actions,LinearLayout.LayoutParams(-1,fd(42)).apply{topMargin=fd(7)})
-        val upper=FrameLayout(this)
-        upper.addView(left,FrameLayout.LayoutParams(
-            (resources.displayMetrics.widthPixels*.27f).toInt(),-1,Gravity.LEFT))
-        shell.addView(upper,LinearLayout.LayoutParams(-1,0,1f))
-        val nav=LinearLayout(this).apply {
-            orientation=LinearLayout.HORIZONTAL
-            gravity=Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.rgb(12,41,66))
-        }
-        fiestaNav=nav
-        fun navItem(title: String, action: () -> Unit) {
-            nav.addView(clickText(title,action),LinearLayout.LayoutParams(0,fd(54),1f))
-        }
-        navItem("⌂  Fiesta") {
-            startActivity(Intent(this,de.vd3.fiesta.LauncherActivity::class.java)
-                .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NO_ANIMATION))
-            overridePendingTransition(0,0)
-        }
-        navItem("☎  Telefon"){showFiestaCommunication()}
-        navItem("♫  Medien"){showFiestaMedia()}
-        navItem("◉  Verbindung") {
-            startActivity(Intent(this,de.vd3.fiesta.WirelessSetupActivity::class.java))
-        }
-        navItem("⛶  Vollbild") { fiestaViewMode=0;applyFiestaSplitLayout() }
-        shell.addView(nav)
-        host.addView(shell,0,FrameLayout.LayoutParams(-1,-1))
-        val toggle=clickText("▣  Fiesta-Ansicht") {
-            fiestaViewMode=if(fiestaViewMode==1)0 else 1
-            applyFiestaSplitLayout()
-        }.apply {
-            setBackgroundColor(Color.rgb(18,65,101))
-            elevation=fd(10).toFloat()
-        }
-        fiestaSwitcher=toggle
-        host.addView(toggle,FrameLayout.LayoutParams(fd(143),fd(48),Gravity.LEFT or Gravity.BOTTOM))
-        applyFiestaSplitLayout()
-    }
-    private fun applyFiestaSplitLayout() {
-        val split=fiestaViewMode==1
-        fiestaShell?.visibility=if(split)View.VISIBLE else View.GONE
-        fiestaSwitcher?.text=if(split)"⛶  Vollbild" else "▣  Fiesta-Ansicht"
-        getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putInt("viewmode",fiestaViewMode).apply()
-        if(::projectionView.isInitialized) {
-            val view=projectionView as View
-            val lp=(view.layoutParams as? FrameLayout.LayoutParams)
-                ?: FrameLayout.LayoutParams(-1,-1)
-            val w=resources.displayMetrics.widthPixels
-            val h=resources.displayMetrics.heightPixels
-            if(split) {
-                lp.width=(w*.73f).toInt()
-                lp.height=(h-fd(54)).coerceAtLeast(fd(190))
-                lp.gravity=Gravity.RIGHT or Gravity.TOP
-                lp.setMargins(0,0,0,fd(54))
-            }else{
-                lp.width=FrameLayout.LayoutParams.MATCH_PARENT
-                lp.height=FrameLayout.LayoutParams.MATCH_PARENT
-                lp.gravity=Gravity.TOP or Gravity.LEFT
-                lp.setMargins(0,0,0,0)
+        val home=TextView(this).apply {
+            text="⌂  SYNC"
+            textSize=14f
+            typeface=android.graphics.Typeface.DEFAULT_BOLD
+            setTextColor(Color.rgb(241,246,250))
+            gravity=Gravity.CENTER
+            setBackgroundColor(Color.rgb(22,37,49))
+            contentDescription="Zur SYNC-Startseite"
+            setOnClickListener {
+                startActivity(Intent(this,de.vd3.fiesta.LauncherActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NO_ANIMATION))
+                overridePendingTransition(0,0)
             }
-            view.layoutParams=lp
-            view.requestLayout()
         }
-        // Critical: upstream Open Headunit uses a transparent full-screen
-        // OverlayTouchView to forward Android Auto taps. A full-screen
-        // interceptor consumed ALL Fiesta dashboard and bottom dock taps.
-        // Constrain this touch layer to precisely the rendered AA surface.
-        val overlay=touchOverlayView
-        if(overlay!=null) {
-            val w=resources.displayMetrics.widthPixels
-            val h=resources.displayMetrics.heightPixels
-            val touchLp=FrameLayout.LayoutParams(
-                if(split)(w*.73f).toInt() else FrameLayout.LayoutParams.MATCH_PARENT,
-                if(split)(h-fd(54)).coerceAtLeast(fd(190)) else FrameLayout.LayoutParams.MATCH_PARENT,
-                if(split)Gravity.RIGHT or Gravity.TOP else Gravity.TOP or Gravity.LEFT
-            )
-            if(split)touchLp.setMargins(0,0,0,fd(54))
-            overlay.layoutParams=touchLp
-            overlay.requestLayout()
-        }
-        // Keep local buttons interactive above the projection touch surface.
-        fiestaSwitcher?.bringToFront()
-    }
-    private fun showFiestaCommunication() {
-        val status=try{
-            val m=getSystemService(android.content.Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager
-            when{m?.adapter==null->"Hersteller-Bluetooth";m.adapter.isEnabled->"Bluetooth eingeschaltet";else->"Bluetooth ausgeschaltet"}
-        }catch(_:Exception){"Bluetooth-Status nicht erreichbar"}
-        androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Fiesta  ·  Telefon")
-            .setMessage("$status\n\nFreisprechen benötigt die Bluetooth-HFP-Schnittstelle der Headunit.")
-            .setPositiveButton("Verbindung") { _,_ ->
-                startActivity(Intent(this,de.vd3.fiesta.WirelessSetupActivity::class.java))
-            }.setNegativeButton("Schließen",null).show()
-    }
-    private fun showFiestaMedia() {
-        val controls=LinearLayout(this).apply{orientation=LinearLayout.HORIZONTAL}
-        fun item(title:String,key:Int) {
-            controls.addView(clickText(title) { fiestaMediaKey(key) },
-                LinearLayout.LayoutParams(0,fd(57),1f))
-        }
-        item("❮",KeyEvent.KEYCODE_MEDIA_PREVIOUS)
-        item("▶Ⅱ",KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
-        item("❯",KeyEvent.KEYCODE_MEDIA_NEXT)
-        androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Fiesta  ·  Medien")
-            .setView(controls).setPositiveButton("Schließen",null).show()
+        val params=FrameLayout.LayoutParams(
+            (resources.displayMetrics.density*100).toInt(),
+            (resources.displayMetrics.density*44).toInt(),
+            Gravity.RIGHT or Gravity.BOTTOM
+        )
+        val margin=(resources.displayMetrics.density*8).toInt()
+        params.setMargins(margin,margin,margin,margin)
+        host.addView(home,params)
+        home.bringToFront()
     }
 '''
 k=k.replace(anchor2,dock+anchor2)
 render_anchor="        container.addView(view)"
 assert k.count(render_anchor)==1
-k=k.replace(render_anchor,render_anchor+"\n        applyFiestaSplitLayout()")
+
 # The touch overlay is created AFTER the video surface, so update its
 # dimensions once it is attached; changing only the video did not fix taps.
 touchAttach="        container.addView(overlayView)"
 assert k.count(touchAttach)==1
-k=k.replace(touchAttach,touchAttach+"\n        applyFiestaSplitLayout()")
+
 
 proj.write_text(k)
 
