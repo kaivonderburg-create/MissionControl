@@ -294,8 +294,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "2.2.0-sync"')
-g=g.replace('versionCode = 122','versionCode = 220')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "2.3.0-premium"')
+g=g.replace('versionCode = 122','versionCode = 230')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
