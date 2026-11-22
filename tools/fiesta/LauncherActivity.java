@@ -256,7 +256,8 @@ public final class LauncherActivity extends Activity {
     }
     private void phone(){
         heading("Telefon","Smartphone koppeln und Telefonfunktionen öffnen");
-        add(body,row("Bluetooth verbinden","Kopplung",()->open(WirelessSetupActivity.class)),20);
+        add(body,row("Bluetooth verbinden","Kopplung",()->open(WirelessSetupActivity.class)),16);
+        add(body,row("Telefonhardware prüfen","Mikrofon und Freisprechen",()->open(MediaHardwareActivity.class)),8);
         add(body,row("Telefon über Android Auto","Anrufe und Kontakte",this::openAuto),10);
         add(body,row("System-Telefon","Nur wenn vom Gerät unterstützt",()->{
             try{startActivity(new Intent(Intent.ACTION_DIAL));}
@@ -271,6 +272,7 @@ public final class LauncherActivity extends Activity {
     private void system(){
         heading("Einstellungen","Verbindungen, Anzeige und System");
         add(body,row("Verbindungen","Bluetooth und WLAN",()->open(WirelessSetupActivity.class)),17);
+        add(body,row("Audio & Telefonhardware","Ausgänge, Mikrofon, Bluetooth",()->open(MediaHardwareActivity.class)),9);
         add(body,row("Android Auto","Empfänger-Einstellungen",()->open(
             com.andrerinas.openheadunit.main.SettingsActivity.class)),9);
         add(body,row("Fahrzeugdiagnose","Raise CAN und Lenkradtasten",()->go(5)),9);
