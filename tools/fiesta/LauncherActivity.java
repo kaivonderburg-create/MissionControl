@@ -7,6 +7,8 @@ import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
+import android.content.res.ColorStateList;
 import android.media.AudioManager;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
@@ -78,6 +80,11 @@ public final class LauncherActivity extends Activity {
         g.setCornerRadius(dp(radius));
         return g;
     }
+    /** Small native touch feedback; no WebView or continuous animations. */
+    private RippleDrawable touchBackground(int color, int radius) {
+        return new RippleDrawable(ColorStateList.valueOf(0x4480c4ea),
+            background(color,radius),null);
+    }
     private TextView text(String value, int size, boolean strong, int color) {
         TextView t = new TextView(this);
         t.setText(value);
@@ -101,7 +108,7 @@ public final class LauncherActivity extends Activity {
     private TextView control(String label, Runnable action) {
         TextView t = text(label,16,false,FORE);
         t.setGravity(Gravity.CENTER);
-        t.setBackground(background(PANEL_LIFT,7));
+        t.setBackground(touchBackground(PANEL_LIFT,7));
         t.setOnClickListener(v -> action.run());
         t.setContentDescription(label);
         return t;
@@ -112,7 +119,7 @@ public final class LauncherActivity extends Activity {
         cell.setOrientation(LinearLayout.HORIZONTAL);
         cell.setGravity(Gravity.CENTER_VERTICAL);
         cell.setPadding(dp(17),dp(7),dp(12),dp(7));
-        cell.setBackground(background(PANEL,7));
+        cell.setBackground(touchBackground(PANEL,7));
         LinearLayout copy=new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
         copy.addView(text(title,16,true,FORE),new LinearLayout.LayoutParams(-1,dp(26)));
@@ -224,6 +231,7 @@ public final class LauncherActivity extends Activity {
             TextView tab=text(TABS[i],14,page==i,page==i?FORE:SECONDARY);
             tab.setGravity(Gravity.CENTER);
             item.addView(tab,new LinearLayout.LayoutParams(-1,dp(49)));
+            item.setBackground(touchBackground(PANEL,6));
             item.setOnClickListener(v->go(index));
             dock.addView(item,new LinearLayout.LayoutParams(0,dp(54),1));
         }
@@ -277,7 +285,7 @@ public final class LauncherActivity extends Activity {
         button.setColorFilter(FORE);
         button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         button.setPadding(dp(13),dp(13),dp(13),dp(13));
-        button.setBackground(background(PANEL_LIFT,7));
+        button.setBackground(touchBackground(PANEL_LIFT,7));
         button.setContentDescription(key==KeyEvent.KEYCODE_MEDIA_PREVIOUS?"Vorheriger Titel":
             key==KeyEvent.KEYCODE_MEDIA_NEXT?"Nächster Titel":playing?"Pause":"Wiedergabe");
         button.setOnClickListener(v->mediaCommand(key));
@@ -369,13 +377,13 @@ public final class LauncherActivity extends Activity {
         TextView mediaMode=text("MEDIEN",12,!compactAutoMode,compactAutoMode?SECONDARY:FORE);
         mediaMode.setGravity(Gravity.CENTER);
         mediaMode.setPadding(dp(9),0,dp(9),0);
-        if(!compactAutoMode)mediaMode.setBackground(background(PANEL_LIFT,6));
+        mediaMode.setBackground(touchBackground(!compactAutoMode?PANEL_LIFT:PANEL,6));
         mediaMode.setOnClickListener(v->setHomeMode(false));
         modes.addView(mediaMode,new LinearLayout.LayoutParams(dp(76),dp(38)));
         TextView autoMode=text("AUTO",12,compactAutoMode,compactAutoMode?FORE:SECONDARY);
         autoMode.setGravity(Gravity.CENTER);
         autoMode.setPadding(dp(8),0,dp(8),0);
-        if(compactAutoMode)autoMode.setBackground(background(PANEL_LIFT,6));
+        autoMode.setBackground(touchBackground(compactAutoMode?PANEL_LIFT:PANEL,6));
         autoMode.setOnClickListener(v->setHomeMode(true));
         modes.addView(autoMode,new LinearLayout.LayoutParams(dp(66),dp(38)));
         MediaController session=activeMedia();
