@@ -92,7 +92,7 @@ public final class SetupActivity extends Activity {
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BG);root.setPadding(dp(19),dp(12),dp(19),dp(11));
         LinearLayout head=new LinearLayout(this);head.setGravity(Gravity.CENTER_VERTICAL);
-        head.addView(label("SYNC  /  dynamicOS",19,true,FG),new LinearLayout.LayoutParams(0,dp(49),1f));
+        head.addView(label("dynamicOS/ Ford Automotive",19,true,FG),new LinearLayout.LayoutParams(0,dp(49),1f));
         head.addView(label("EINRICHTUNG  ·  "+(page+1)+"/4",13,true,BLUE));
         root.addView(head);
         View line=new View(this);line.setBackgroundColor(0xff30414b);root.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
@@ -133,7 +133,7 @@ public final class SetupActivity extends Activity {
         }else{
             add(body,label("Bereit für die Fahrt.",25,true,FG),0);
             add(body,label("Android Auto nutzt die vollständige Projektionsfläche.",15,false,MUTED),6);
-            option("SYNC als Startseite","Audio, Navigation, Telefon und Fahrzeug übersichtlich bedienen.",null,true);
+            option("Ford Automotive als Startseite","Audio, Navigation, Telefon und Fahrzeug übersichtlich bedienen.",null,true);
             option("Android Auto im Vollbild","Keine überlagernden Medienfenster und keine zweite Menüleiste.",null,false);
             button("Zurück",false,()->next(2));button("Fiesta starten",true,this::finishSetup);
         }
@@ -206,7 +206,7 @@ public final class WirelessSetupActivity extends Activity {
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(0xff0b1117);root.setPadding(dp(20),dp(12),dp(20),dp(12));
         LinearLayout head=new LinearLayout(this);head.setOrientation(LinearLayout.HORIZONTAL);
-        TextView title=label("SYNC  /  Verbindungen",21,0xfff5faff,true);
+        TextView title=label("dynamicOS/ Ford Automotive",21,0xfff5faff,true);
         head.addView(title,new LinearLayout.LayoutParams(0,dp(55),1f));
         TextView back=label("‹  Fiesta",16,0xff80c4ea,true);
         back.setGravity(Gravity.CENTER);back.setOnClickListener(v->finish());
@@ -294,8 +294,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "2.3.0-premium"')
-g=g.replace('versionCode = 122','versionCode = 230')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "2.4.0-automotive"')
+g=g.replace('versionCode = 122','versionCode = 240')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
@@ -337,7 +337,7 @@ dock=r'''
             gravity=Gravity.CENTER
             setBackgroundColor(Color.rgb(21,33,42))
             alpha=0.88f
-            contentDescription="Zur SYNC-Startseite"
+            contentDescription="Zur Ford-Automotive-Startseite"
             setOnClickListener {
                 startActivity(Intent(this@AapProjectionActivity,de.vd3.fiesta.LauncherActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NO_ANIMATION))
@@ -427,4 +427,4 @@ serviceText=serviceText.replace(revisionAnchor,revisionAnchor+'''
                     .putLong("art_revision", coverRevision).apply()''')
 service.write_text(serviceText)
 
-print("Unified SYNC build merged: native Android Auto projection and media metadata bridge.")
+print("Unified Ford Automotive build merged: native Android Auto projection and media metadata bridge.")
