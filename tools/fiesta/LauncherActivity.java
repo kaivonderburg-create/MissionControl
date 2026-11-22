@@ -150,37 +150,51 @@ public final class LauncherActivity extends Activity {
         setContentView(root);
     }
 
+    /** SYNC dashboard: glanceable source, primary controls and persistent navigation. */
     private void home(){
-        LinearLayout middle=new LinearLayout(this);
-        middle.setGravity(Gravity.CENTER_VERTICAL);
-        body.addView(middle,new LinearLayout.LayoutParams(-1,0,1));
-        LinearLayout intro=new LinearLayout(this);
-        intro.setOrientation(LinearLayout.VERTICAL);
-        intro.setGravity(Gravity.CENTER_VERTICAL);
-        intro.setPadding(dp(22),dp(12),dp(10),dp(12));
-        intro.setBackground(background(PANEL,14));
-        intro.addView(text("Ford Fiesta",28,true,FORE));
-        add(intro,text("SYNC  ·  Bereit für die Fahrt",15,false,SECONDARY),8);
-        ImageView car=new ImageView(this);
-        car.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        car.setImageResource(R.drawable.fiesta_graphite);
-        intro.addView(car,new LinearLayout.LayoutParams(-1,0,1));
-        LinearLayout.LayoutParams left=new LinearLayout.LayoutParams(0,-1,0.48f);
-        left.rightMargin=dp(12);
-        middle.addView(intro,left);
-        LinearLayout choices=new LinearLayout(this);
-        choices.setOrientation(LinearLayout.VERTICAL);
-        middle.addView(choices,new LinearLayout.LayoutParams(0,-1,0.52f));
-        TextView audio=control("Audio",()->go(1));
+        LinearLayout horizontal=new LinearLayout(this);
+        horizontal.setGravity(Gravity.CENTER_VERTICAL);
+        body.addView(horizontal,new LinearLayout.LayoutParams(-1,0,1f));
+        LinearLayout primary=new LinearLayout(this);
+        primary.setOrientation(LinearLayout.VERTICAL);
+        primary.setPadding(dp(18),dp(12),dp(18),dp(12));
+        primary.setBackground(background(PANEL,14));
+        LinearLayout.LayoutParams primaryLp=new LinearLayout.LayoutParams(0,-1,.60f);
+        primaryLp.rightMargin=dp(12);
+        horizontal.addView(primary,primaryLp);
+        TextView heading=text("Audio",15,true,ACCENT);
+        primary.addView(heading);
+        MediaController session=activeMedia();
+        MediaMetadata metadata=session==null?null:session.getMetadata();
+        String song=metadata==null?null:metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
+        String artist=metadata==null?null:metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
+        TextView track=text(song==null||song.isEmpty()?"Keine aktive Wiedergabe":song,25,true,FORE);
+        LinearLayout.LayoutParams trackLp=new LinearLayout.LayoutParams(-1,0,1f);
+        trackLp.topMargin=dp(10);
+        primary.addView(track,trackLp);
+        primary.addView(text(artist==null||artist.isEmpty()?"Smartphone oder Medienquelle auswählen":artist,14,false,SECONDARY));
+        LinearLayout commands=new LinearLayout(this);
+        LinearLayout.LayoutParams cl=new LinearLayout.LayoutParams(-1,dp(66));cl.topMargin=dp(11);
+        primary.addView(commands,cl);
+        final int[] keys={KeyEvent.KEYCODE_MEDIA_PREVIOUS,KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,KeyEvent.KEYCODE_MEDIA_NEXT};
+        final String[] labels={"❮","▶  /  Ⅱ","❯"};
+        for(int i=0;i<3;i++){
+            final int key=keys[i];
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);
+            lp.leftMargin=dp(3);lp.rightMargin=dp(3);
+            commands.addView(control(labels[i],()->mediaCommand(key)),lp);
+        }
+        LinearLayout secondary=new LinearLayout(this);
+        secondary.setOrientation(LinearLayout.VERTICAL);
+        horizontal.addView(secondary,new LinearLayout.LayoutParams(0,-1,.40f));
+        TextView navigation=control("Navigation",this::openAuto);
         TextView phone=control("Telefon",()->go(2));
-        TextView nav=control("Navigation",()->go(3));
-        choices.addView(audio,new LinearLayout.LayoutParams(-1,0,1));
-        LinearLayout.LayoutParams gap=new LinearLayout.LayoutParams(-1,0,1);
-        gap.topMargin=dp(9);
-        choices.addView(phone,gap);
-        LinearLayout.LayoutParams bottom=new LinearLayout.LayoutParams(-1,0,1);
-        bottom.topMargin=dp(9);
-        choices.addView(nav,bottom);
+        TextView vehicle=control("Fahrzeug",()->go(5));
+        secondary.addView(navigation,new LinearLayout.LayoutParams(-1,0,1f));
+        LinearLayout.LayoutParams pl=new LinearLayout.LayoutParams(-1,0,1f);pl.topMargin=dp(9);
+        secondary.addView(phone,pl);
+        LinearLayout.LayoutParams vl=new LinearLayout.LayoutParams(-1,0,1f);vl.topMargin=dp(9);
+        secondary.addView(vehicle,vl);
     }
 
     private MediaController activeMedia(){
