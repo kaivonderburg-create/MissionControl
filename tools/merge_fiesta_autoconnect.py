@@ -396,6 +396,35 @@ serviceText=serviceText.replace(clearAnchor,clearAnchor+'''
         getSharedPreferences("dynamicos_aa_bridge", MODE_PRIVATE).edit()
             .putBoolean("connected", false)
             .remove("title").remove("artist").remove("playing").apply()''')
+# Publish one low-resolution cover cache per track, without keeping a second
+# full-size decoder or artwork bitmap alive in the SYNC launcher.
+artAnchor="            val bitmap = bytes?.let { decodeAlbumArt(it) }"
+assert serviceText.count(artAnchor)==1
+serviceText=serviceText.replace(artAnchor,artAnchor+'''
+            val coverRevision = android.os.SystemClock.elapsedRealtime()
+            try {
+                val coverFile = java.io.File(cacheDir, "dynamicos_aa_cover.jpg")
+                if (bitmap != null) {
+                    java.io.FileOutputStream(coverFile).use { out ->
+                        val scaled = if (bitmap.width > 256 || bitmap.height > 256) {
+                            val scale = minOf(256f / bitmap.width, 256f / bitmap.height)
+                            android.graphics.Bitmap.createScaledBitmap(bitmap,
+                                (bitmap.width * scale).toInt().coerceAtLeast(1),
+                                (bitmap.height * scale).toInt().coerceAtLeast(1), true)
+                        } else bitmap
+                        scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, out)
+                        if (scaled !== bitmap) scaled.recycle()
+                    }
+                } else coverFile.delete()
+            } catch (_: Exception) { }
+''')
+# Publish the revision only after verifying this album belongs to the current
+# projection media item; old canceled decode tasks must never update the UI.
+revisionAnchor="                cachedAaAlbumArtBitmap = bitmap"
+assert serviceText.count(revisionAnchor)==1
+serviceText=serviceText.replace(revisionAnchor,revisionAnchor+'''
+                getSharedPreferences("dynamicos_aa_bridge", MODE_PRIVATE).edit()
+                    .putLong("art_revision", coverRevision).apply()''')
 service.write_text(serviceText)
 
 print("Unified SYNC build merged: native Android Auto projection and media metadata bridge.")
