@@ -31,8 +31,8 @@ import java.util.Locale;
 
 /** Native 1-GB-RAM SYNC shell. One navigation model; no WebView or continuous redraw. */
 public final class LauncherActivity extends Activity {
-    private static final int BACK = 0xff0b1420, PANEL = 0xff142334, PANEL_LIFT = 0xff192c3f,
-            FORE = 0xfff5f7fa, SECONDARY = 0xffaebfcc, ACCENT = 0xff59a9ec, DIVIDER = 0xff2b4052;
+    private static final int BACK = 0xff0b1117, PANEL = 0xff151f28, PANEL_LIFT = 0xff1c2934,
+            FORE = 0xfff3f5f6, SECONDARY = 0xff9aaebc, ACCENT = 0xff80c4ea, DIVIDER = 0xff30414b;
     private static final String[] TABS = {"Start","Audio","Telefon","Navigation","System"};
     private LinearLayout root, body;
     private int page;
@@ -61,13 +61,13 @@ public final class LauncherActivity extends Activity {
         target.addView(view,p);
     }
     private void heading(String title, String detail) {
-        add(body,text(title,26,true,FORE),1);
-        add(body,text(detail,15,false,SECONDARY),5);
+        add(body,text(title,22,true,FORE),1);
+        add(body,text(detail,13,false,SECONDARY),4);
     }
     private TextView control(String label, Runnable action) {
-        TextView t = text(label,17,true,FORE);
+        TextView t = text(label,16,false,FORE);
         t.setGravity(Gravity.CENTER);
-        t.setBackground(background(PANEL_LIFT,11));
+        t.setBackground(background(PANEL_LIFT,7));
         t.setOnClickListener(v -> action.run());
         t.setContentDescription(label);
         return t;
@@ -75,7 +75,7 @@ public final class LauncherActivity extends Activity {
     private TextView row(String title, String description, Runnable action) {
         TextView t = control(title,action);
         t.setGravity(Gravity.CENTER_VERTICAL);
-        t.setPadding(dp(20),0,dp(16),0);
+        t.setPadding(dp(17),0,dp(14),0);
         t.setContentDescription(title + ": " + description);
         return t;
     }
@@ -113,21 +113,21 @@ public final class LauncherActivity extends Activity {
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BACK);
-        root.setPadding(dp(22),dp(10),dp(22),dp(9));
+        root.setPadding(dp(20),dp(6),dp(20),dp(9));
         LinearLayout status = new LinearLayout(this);
         status.setGravity(Gravity.CENTER_VERTICAL);
-        status.addView(text("SYNC",22,true,FORE),new LinearLayout.LayoutParams(-2,dp(47)));
-        TextView identity = text("  ·  dynamicOS",15,false,SECONDARY);
-        status.addView(identity,new LinearLayout.LayoutParams(0,dp(47),1));
-        TextView time = text(new SimpleDateFormat("HH:mm",Locale.GERMANY).format(new Date()),19,true,FORE);
+        status.addView(text("SYNC",19,true,FORE),new LinearLayout.LayoutParams(-2,dp(44)));
+        TextView identity = text("  /  dynamicOS",12,false,SECONDARY);
+        status.addView(identity,new LinearLayout.LayoutParams(0,dp(44),1));
+        TextView time = text(new SimpleDateFormat("HH:mm",Locale.GERMANY).format(new Date()),17,false,FORE);
         time.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
-        status.addView(time,new LinearLayout.LayoutParams(dp(95),dp(47)));
+        status.addView(time,new LinearLayout.LayoutParams(dp(90),dp(44)));
         root.addView(status);
         View line = new View(this); line.setBackgroundColor(DIVIDER);
         root.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
         body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(0,dp(15),0,dp(9));
+        body.setPadding(0,dp(13),0,dp(10));
         root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
         if(page==0)home();
         else if(page==1)music();
@@ -136,15 +136,21 @@ public final class LauncherActivity extends Activity {
         else if(page==4)system();
         else vehicle();
         LinearLayout dock=new LinearLayout(this);
-        dock.setPadding(dp(2),dp(2),dp(2),dp(2));
-        dock.setBackground(background(PANEL,12));
+        dock.setPadding(dp(2),dp(3),dp(2),0);
+        dock.setBackgroundColor(PANEL);
         for(int i=0;i<TABS.length;i++){
             final int index=i;
-            TextView tab=text(TABS[i],15,page==i,page==i?ACCENT:FORE);
+            LinearLayout item=new LinearLayout(this);
+            item.setOrientation(LinearLayout.VERTICAL);
+            item.setGravity(Gravity.CENTER_HORIZONTAL);
+            View indicator=new View(this);
+            indicator.setBackgroundColor(page==i?ACCENT:PANEL);
+            item.addView(indicator,new LinearLayout.LayoutParams(dp(36),dp(2)));
+            TextView tab=text(TABS[i],14,page==i,page==i?FORE:SECONDARY);
             tab.setGravity(Gravity.CENTER);
-            if(page==i)tab.setBackground(background(0xff22394e,10));
-            tab.setOnClickListener(v->go(index));
-            dock.addView(tab,new LinearLayout.LayoutParams(0,dp(55),1));
+            item.addView(tab,new LinearLayout.LayoutParams(-1,dp(49)));
+            item.setOnClickListener(v->go(index));
+            dock.addView(item,new LinearLayout.LayoutParams(0,dp(54),1));
         }
         root.addView(dock);
         setContentView(root);
@@ -157,24 +163,24 @@ public final class LauncherActivity extends Activity {
         body.addView(horizontal,new LinearLayout.LayoutParams(-1,0,1f));
         LinearLayout primary=new LinearLayout(this);
         primary.setOrientation(LinearLayout.VERTICAL);
-        primary.setPadding(dp(18),dp(12),dp(18),dp(12));
-        primary.setBackground(background(PANEL,14));
+        primary.setPadding(dp(20),dp(15),dp(20),dp(15));
+        primary.setBackground(background(PANEL,8));
         LinearLayout.LayoutParams primaryLp=new LinearLayout.LayoutParams(0,-1,.60f);
-        primaryLp.rightMargin=dp(12);
+        primaryLp.rightMargin=dp(9);
         horizontal.addView(primary,primaryLp);
-        TextView heading=text("Audio",15,true,ACCENT);
+        TextView heading=text("JETZT WIEDERGEBEN",12,true,ACCENT);
         primary.addView(heading);
         MediaController session=activeMedia();
         MediaMetadata metadata=session==null?null:session.getMetadata();
         String song=metadata==null?null:metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
         String artist=metadata==null?null:metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
-        TextView track=text(song==null||song.isEmpty()?"Keine aktive Wiedergabe":song,25,true,FORE);
+        TextView track=text(song==null||song.isEmpty()?"Medien bereit":song,22,true,FORE);
         LinearLayout.LayoutParams trackLp=new LinearLayout.LayoutParams(-1,0,1f);
         trackLp.topMargin=dp(10);
         primary.addView(track,trackLp);
-        primary.addView(text(artist==null||artist.isEmpty()?"Smartphone oder Medienquelle auswählen":artist,14,false,SECONDARY));
+        primary.addView(text(artist==null||artist.isEmpty()?"Verbinde dein Smartphone für Musik und Navigation":artist,13,false,SECONDARY));
         LinearLayout commands=new LinearLayout(this);
-        LinearLayout.LayoutParams cl=new LinearLayout.LayoutParams(-1,dp(66));cl.topMargin=dp(11);
+        LinearLayout.LayoutParams cl=new LinearLayout.LayoutParams(-1,dp(58));cl.topMargin=dp(12);
         primary.addView(commands,cl);
         final int[] keys={KeyEvent.KEYCODE_MEDIA_PREVIOUS,KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,KeyEvent.KEYCODE_MEDIA_NEXT};
         final String[] labels={"❮","▶  /  Ⅱ","❯"};
@@ -191,9 +197,9 @@ public final class LauncherActivity extends Activity {
         TextView phone=control("Telefon",()->go(2));
         TextView vehicle=control("Fahrzeug",()->go(5));
         secondary.addView(navigation,new LinearLayout.LayoutParams(-1,0,1f));
-        LinearLayout.LayoutParams pl=new LinearLayout.LayoutParams(-1,0,1f);pl.topMargin=dp(9);
+        LinearLayout.LayoutParams pl=new LinearLayout.LayoutParams(-1,0,1f);pl.topMargin=dp(7);
         secondary.addView(phone,pl);
-        LinearLayout.LayoutParams vl=new LinearLayout.LayoutParams(-1,0,1f);vl.topMargin=dp(9);
+        LinearLayout.LayoutParams vl=new LinearLayout.LayoutParams(-1,0,1f);vl.topMargin=dp(7);
         secondary.addView(vehicle,vl);
     }
 
