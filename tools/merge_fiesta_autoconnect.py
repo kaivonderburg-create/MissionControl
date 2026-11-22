@@ -307,8 +307,8 @@ for folder in ("values","values-de"):
     path=src/"res"/folder/"strings.xml"
     if path.exists():
         s=path.read_text()
-        s=re.sub(r'(<string name="app_name">).*?(</string>)',r'\1dynamicOS Fiesta\2',s)
-        s=re.sub(r'(<string name="title">).*?(</string>)',r'\1dynamicOS Fiesta\2',s)
+        s=re.sub(r'(<string name="app_name">).*?(</string>)',r'\1dynamicOS Ford Automotive\2',s)
+        s=re.sub(r'(<string name="title">).*?(</string>)',r'\1dynamicOS Ford Automotive\2',s)
         path.write_text(s)
 
 # Keep the receiver's native pairing UI. The previous full-screen shell
