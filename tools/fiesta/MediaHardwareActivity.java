@@ -106,7 +106,7 @@ public final class MediaHardwareActivity extends Activity {
     }
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
-        setTitle("SYNC Audio- und Telefonhardware");
+        setTitle("dynamicOS/ Ford Automotive");
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setBackgroundColor(BG);
         content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);
         content.setPadding(dp(24),dp(14),dp(24),dp(16));scroll.addView(content);
