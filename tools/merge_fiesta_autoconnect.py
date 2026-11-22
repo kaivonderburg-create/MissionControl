@@ -381,24 +381,27 @@ k=k.replace(anchor,anchor+"\n        installFiestaDock()")
 anchor2="    private enum class OverlayState { STARTING, RECONNECTING, HIDDEN }"
 assert k.count(anchor2)==1
 dock=r'''
-    // The projection renderer is hosted in this Activity, not launched via a
-    // separate package. The dock and the projected surface coexist in one View tree.
-    private var fiestaSplitEnabled = true
+    // Lightweight dynamicOS control strip. Projection starts full-screen; the
+    // compact native panel is only shown when the user presses the 44dp switch.
+    // Do not start another receiver activity, WebView, animation, or background task.
+    private var fiestaSplitEnabled = false
     private var fiestaPanel: LinearLayout? = null
     private var fiestaToggle: TextView? = null
-    private val fiestaPanelWidth: Int get() = (resources.displayMetrics.density * 228).toInt()
+    private val fiestaPanelWidth: Int
+        get() = (resources.displayMetrics.widthPixels * 0.22f).toInt()
+            .coerceAtMost((resources.displayMetrics.density * 225).toInt())
     private fun fiestaLabel(label: String, size: Float = 15f): TextView =
         TextView(this).apply {
             text = label
             textSize = size
             gravity = Gravity.CENTER_VERTICAL
             setTextColor(Color.WHITE)
-            setPadding(12, 5, 8, 5)
+            setPadding(12, 6, 8, 6)
         }
     private fun fiestaAction(label: String, action: () -> Unit): TextView =
-        fiestaLabel(label, 17f).apply {
-            minHeight = (resources.displayMetrics.density * 44).toInt()
-            setBackgroundColor(Color.rgb(17, 49, 78))
+        fiestaLabel(label, 15f).apply {
+            minHeight = (resources.displayMetrics.density * 48).toInt()
+            setBackgroundColor(Color.rgb(16, 42, 66))
             setOnClickListener { action() }
         }
     private fun fiestaMediaKey(code: Int) {
@@ -411,48 +414,48 @@ dock=r'''
         val host = findViewById<FrameLayout>(R.id.container) ?: return
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(7, 24, 45))
-            setPadding(4, 6, 4, 6)
+            setBackgroundColor(Color.rgb(7, 19, 38))
+            setPadding(6, 8, 6, 8)
+            visibility = View.GONE
+            elevation = 12f
         }
         fiestaPanel = panel
-        panel.addView(fiestaLabel("dynamicOS  /  FIESTA", 15f))
+        panel.addView(fiestaLabel("dynamicOS   /   FIESTA", 14f))
         panel.addView(fiestaAction("⌂  Startseite") {
             startActivity(Intent(this, de.vd3.fiesta.LauncherActivity::class.java))
         })
-        panel.addView(fiestaAction("☎  Telefon") {
-            showFiestaCommunication()
-        })
-        panel.addView(fiestaAction("♫  Medien") {
-            showFiestaMedia()
-        })
-        panel.addView(fiestaAction("⚙  Verbindung") {
+        panel.addView(fiestaAction("☎  Telefon") { showFiestaCommunication() })
+        panel.addView(fiestaAction("♫  Medien") { showFiestaMedia() })
+        panel.addView(fiestaAction("◉  Verbindung") {
             startActivity(Intent(this, de.vd3.fiesta.WirelessSetupActivity::class.java))
         })
-        panel.addView(fiestaAction("⛶  Vollbild / geteilt") {
-            fiestaSplitEnabled = !fiestaSplitEnabled
+        panel.addView(fiestaAction("⛶  Vollbild") {
+            fiestaSplitEnabled = false
             applyFiestaSplitLayout()
         })
         host.addView(panel, FrameLayout.LayoutParams(fiestaPanelWidth,
             FrameLayout.LayoutParams.MATCH_PARENT, Gravity.RIGHT))
-        val toggle = fiestaAction("▣") {
+        val toggle = fiestaAction("▦") {
             fiestaSplitEnabled = !fiestaSplitEnabled
             applyFiestaSplitLayout()
+        }.apply {
+            gravity = Gravity.CENTER
+            setBackgroundColor(Color.rgb(8, 31, 57))
+            elevation = 14f
+            contentDescription = "dynamicOS Bedienfeld ein- oder ausblenden"
         }
         fiestaToggle = toggle
         host.addView(toggle, FrameLayout.LayoutParams(
-            (resources.displayMetrics.density * 44).toInt(),
-            (resources.displayMetrics.density * 44).toInt(),
-            Gravity.LEFT or Gravity.TOP))
+            (resources.displayMetrics.density * 42).toInt(),
+            (resources.displayMetrics.density * 48).toInt(),
+            Gravity.RIGHT or Gravity.TOP))
         toggle.bringToFront()
     }
     private fun applyFiestaSplitLayout() {
-        val host = findViewById<FrameLayout>(R.id.container) ?: return
         val panel = fiestaPanel ?: return
         panel.visibility = if (fiestaSplitEnabled) View.VISIBLE else View.GONE
         if (::projectionView.isInitialized) {
             val view = projectionView as View
-            // Make actual room for the panel instead of obscuring projection pixels.
-            // Projection size and touch geometry follow the renderer surface resize.
             val lp = (view.layoutParams as? FrameLayout.LayoutParams)
                 ?: FrameLayout.LayoutParams(-1, -1)
             lp.width = FrameLayout.LayoutParams.MATCH_PARENT
@@ -461,31 +464,33 @@ dock=r'''
             lp.gravity = Gravity.LEFT or Gravity.TOP
             view.layoutParams = lp
             view.requestLayout()
-            panel.bringToFront()
-            fiestaToggle?.bringToFront()
         }
+        panel.bringToFront()
+        fiestaToggle?.bringToFront()
     }
     private fun showFiestaCommunication() {
-        val bluetooth = (getSystemService(android.content.Context.BLUETOOTH_SERVICE)
-            as? android.bluetooth.BluetoothManager)?.adapter
+        val bluetooth = try {
+            (getSystemService(android.content.Context.BLUETOOTH_SERVICE)
+                as? android.bluetooth.BluetoothManager)?.adapter
+        } catch (_: Exception) { null }
         val state = when {
-            bluetooth == null -> "Bluetooth nicht verfügbar"
+            bluetooth == null -> "Android-Bluetooth nicht verfügbar"
             bluetooth.isEnabled -> "Bluetooth eingeschaltet"
             else -> "Bluetooth ausgeschaltet"
         }
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("dynamicOS  ·  Kommunikation")
-            .setMessage("$state\n\nTelefonie über das gekoppelte Smartphone setzt ein erreichbares HFP-Telefonieprofil voraus. Die Freisprechfunktion muss von der Radio-Firmware bereitgestellt werden.")
-            .setPositiveButton("Bluetooth koppeln") { _, _ ->
-                startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS))
+            .setTitle("dynamicOS  /  Telefon")
+            .setMessage("$state\n\nAnrufe laufen über das gekoppelte Smartphone und ein kompatibles HFP-Profil der Headunit.")
+            .setPositiveButton("Kopplung") { _, _ ->
+                startActivity(Intent(this, de.vd3.fiesta.WirelessSetupActivity::class.java))
             }
-            .setNeutralButton("Wählen") { _, _ ->
+            .setNeutralButton("Telefon öffnen") { _, _ ->
                 try { startActivity(Intent(Intent.ACTION_DIAL)) }
                 catch (_: Exception) {
-                    Toast.makeText(this, "Keine Telefonie-Schnittstelle verfügbar", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, "Telefoniefunktion der Firmware nicht verfügbar", Toast.LENGTH_LONG).show()
                 }
             }
-            .setNegativeButton("Schließen", null)
+            .setNegativeButton("Zurück", null)
             .show()
     }
     private fun showFiestaMedia() {
@@ -497,11 +502,11 @@ dock=r'''
             row.addView(fiestaAction(label) { fiestaMediaKey(code) },
                 LinearLayout.LayoutParams(0, -2, 1f))
         }
-        media("❮❮", KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+        media("❮", KeyEvent.KEYCODE_MEDIA_PREVIOUS)
         media("▶Ⅱ", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
-        media("❯❯", KeyEvent.KEYCODE_MEDIA_NEXT)
+        media("❯", KeyEvent.KEYCODE_MEDIA_NEXT)
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("dynamicOS  ·  Medien")
+            .setTitle("dynamicOS  /  Medien")
             .setView(row)
             .setPositiveButton("Schließen", null)
             .show()
