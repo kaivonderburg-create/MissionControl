@@ -123,14 +123,16 @@ import android.view.View;
 import android.widget.TextView;
 import android.widget.LinearLayout;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
+import com.andrerinas.openheadunit.R;
 import android.widget.Toast;
 
 /** 1024x600 landscape responsive onboard configuration.
  * Fixed dual-column composition; no ScrollView, WebView, or animation loop.
  */
 public final class SetupActivity extends Activity {
-    private static final int BG=0xff071525, SIDE=0xff102a44, CARD=0xff183650;
-    private static final int ACCENT=0xff3b9df5, FG=0xfff7fbff, SUB=0xffb7cada, GREEN=0xff79e1ae;
+    private static final int BG=0xff081322, SIDE=0xff0e2034, CARD=0xff152c45;
+    private static final int ACCENT=0xff51a9f9, FG=0xfff7fbff, SUB=0xffb7cada, GREEN=0xff79e1ae;
     private int page=0;
     private LinearLayout root, left, right, tiles, controls;
     private int dp(float n){ return (int)(getResources().getDisplayMetrics().density*n+0.5f); }
@@ -209,41 +211,70 @@ public final class SetupActivity extends Activity {
     @Override protected void onResume(){super.onResume();if(root!=null&&page==2)render();}
     private void render(){
         root=new LinearLayout(this);root.setOrientation(LinearLayout.HORIZONTAL);
-        root.setBackgroundColor(BG);root.setPadding(dp(12),dp(12),dp(12),dp(12));
+        root.setBackgroundColor(BG);root.setPadding(dp(13),dp(10),dp(13),dp(10));
         left=vertical();left.setBackground(shape(SIDE,0xff1e4160));
-        left.setPadding(dp(22),dp(16),dp(18),dp(14));
-        LinearLayout.LayoutParams l=new LinearLayout.LayoutParams(0,-1,.34f);
+        left.setPadding(dp(15),dp(16),dp(12),dp(14));
+        LinearLayout.LayoutParams l=new LinearLayout.LayoutParams(0,-1,.23f);
         l.rightMargin=dp(12);root.addView(left,l);
 
-        add(left,label("dynamicOS",23,FG,true),0);
-        add(left,label("FORD FIESTA  ·  UNIFIED",12,ACCENT,true),3);
+        add(left,label("dynamicOS",20,FG,true),0);
+        add(left,label("FIESTA   |   UNIFIED",11,ACCENT,true),3);
         View line=new View(this);line.setBackgroundColor(0xff2c4f6c);
         add(left,line,18);line.getLayoutParams().height=dp(1);
         String[] sections={"WILLKOMMEN","FAHRZEUG","VERBINDUNG","ANZEIGE"};
         for(int i=0;i<4;i++){
-            TextView step=label((i+1<10?"0":"")+(i+1)+"    "+sections[i],
-                14,i==page?FG:(i<page?ACCENT:SUB),i==page);
+            TextView step=label((i+1<10?"0":"")+(i+1)+"  "+sections[i],
+                12,i==page?FG:(i<page?ACCENT:SUB),i==page);
             step.setBackground(i==page?shape(0xff24547b,0):null);
             step.setPadding(dp(11),0,0,0);
-            add(left,step,9);step.getLayoutParams().height=dp(44);
+            add(left,step,5);step.getLayoutParams().height=dp(43);
         }
         left.addView(new View(this),new LinearLayout.LayoutParams(1,0,1f));
-        add(left,label("FIESTA Mk7  /  2015",13,SUB,false),4);
-        add(left,label("Eine Oberfläche. Ein System.",12,SUB,false),3);
+        add(left,label("FIESTA Mk7  ·  2015",12,SUB,false),4);
+        add(left,label("W-S 107",11,SUB,false),3);
 
-        right=vertical();right.setPadding(dp(8),dp(7),dp(5),dp(3));
-        root.addView(right,new LinearLayout.LayoutParams(0,-1,.66f));
+        right=vertical();right.setPadding(dp(8),dp(8),dp(5),dp(3));
+        root.addView(right,new LinearLayout.LayoutParams(0,-1,.77f));
         LinearLayout header=vertical();right.addView(header);
         tiles=vertical();right.addView(tiles,new LinearLayout.LayoutParams(-1,0,1f));
         controls=new LinearLayout(this);controls.setOrientation(LinearLayout.HORIZONTAL);
         right.addView(controls,new LinearLayout.LayoutParams(-1,-2));
         if(page==0){
-            add(header,label("Willkommen in deinem Fiesta",26,FG,true),0);
-            add(header,label("Dein Infotainment. Navigation, Medien, Telefon und Fahrzeug – nahtlos vereint.",14,SUB,false),7);
-            tile("◆","Fiesta Unified","Optimiert für die Headunit und das Fahrzeugprofil","Bereit",null);
-            tile("▣","Eine Bedienoberfläche","Android Auto als Vollbild oder Fenster im Fiesta-Dashboard",null,null);
+            add(header,label("Willkommen zurück im Fiesta.",25,FG,true),0);
+            add(header,label("Infotainment, das sich wie ein Teil deines Fahrzeugs anfühlt.",13,SUB,false),5);
+            FrameLayout hero=new FrameLayout(this);
+            hero.setBackground(shape(0xff113456,0xff234f73));
+            ImageView car=new ImageView(this);
+            car.setImageResource(R.drawable.fiesta_graphite);
+            car.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            FrameLayout.LayoutParams imageLayout=new FrameLayout.LayoutParams(
+                (int)(getResources().getDisplayMetrics().widthPixels*.31f),
+                FrameLayout.LayoutParams.MATCH_PARENT,Gravity.RIGHT|Gravity.CENTER_VERTICAL);
+            imageLayout.setMargins(0,dp(8),dp(12),dp(8));
+            hero.addView(car,imageLayout);
+            LinearLayout caption=vertical();
+            caption.setPadding(dp(22),dp(17),0,dp(12));
+            add(caption,label("DEIN FIESTA. NEU ERLEBT.",12,ACCENT,true),0);
+            add(caption,label("Alles. An einem Ort.",23,FG,true),10);
+            add(caption,label("Fahren. Verbinden. Genießen.",14,SUB,false),7);
+            hero.addView(caption,new FrameLayout.LayoutParams(
+                (int)(getResources().getDisplayMetrics().widthPixels*.31f),-1,Gravity.LEFT));
+            LinearLayout.LayoutParams heroLayout=new LinearLayout.LayoutParams(-1,0,1f);
+            heroLayout.topMargin=dp(15);tiles.addView(hero,heroLayout);
+            LinearLayout highlights=new LinearLayout(this);
+            highlights.setOrientation(LinearLayout.HORIZONTAL);
+            TextView aa=label("◈  Android Auto",14,FG,true);aa.setGravity(Gravity.CENTER);
+            aa.setBackground(shape(CARD,0));
+            TextView media=label("♫  Medien & Telefon",14,FG,true);media.setGravity(Gravity.CENTER);
+            media.setBackground(shape(CARD,0));
+            TextView vehicle=label("◇  Fahrzeug",14,FG,true);vehicle.setGravity(Gravity.CENTER);
+            vehicle.setBackground(shape(CARD,0));
+            highlights.addView(aa,new LinearLayout.LayoutParams(0,dp(47),1f));
+            highlights.addView(media,new LinearLayout.LayoutParams(0,dp(47),1f));
+            highlights.addView(vehicle,new LinearLayout.LayoutParams(0,dp(47),1f));
+            add(tiles,highlights,9);
             button("Einrichtung starten",true,()->go(1));
-            button("Später",false,this::finishSetup);
+            button("Jetzt starten",false,this::finishSetup);
         }else if(page==1){
             add(header,label("Dein Fahrzeug",26,FG,true),0);
             add(header,label("Die Darstellung und Kernfunktionen sind auf deinen Fiesta abgestimmt.",14,SUB,false),7);
@@ -384,8 +415,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.6.0-unified"')
-g=g.replace('versionCode = 122','versionCode = 106')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.7.0-unified"')
+g=g.replace('versionCode = 122','versionCode = 107')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
