@@ -46,4 +46,10 @@ assert 'mediaToggleView' in ui and 'refreshMediaLabels()' in ui, "Reactive media
 assert 'registerOnSharedPreferenceChangeListener(mediaListener)' in ui, "Bridge listener missing"
 assert 'installFiestaConnectionShell()' not in (root / "java/com/andrerinas/openheadunit/main/MainActivity.kt").read_text(), "Obsolete receiver overlay reintroduced"
 
-print("Unified SYNC static integrity checks passed")
+assert 'dynamicOS' in ui and 'Ford Automotive' in ui, "New Ford Automotive branding missing"
+assert 'home_auto_compact' in ui and 'setHomeMode(boolean compact)' in ui, "Switchable home tiles missing"
+assert 'refreshCover(session)' in ui and 'dynamicos_aa_cover.jpg' in ui, "Album artwork not wired"
+assert 'art_revision' in aap_service, "Cover cache revision missing from receiver"
+assert 'createScaledBitmap' in aap_service, "Cover decode not scaled for limited memory"
+assert 'syncHomeButton' in aa, "AA navigation back to Ford Automotive missing"
+print("Unified Ford Automotive design and integration checks passed")
