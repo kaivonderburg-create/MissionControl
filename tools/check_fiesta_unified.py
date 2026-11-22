@@ -8,10 +8,12 @@ launcher = root / "java/de/vd3/fiesta/LauncherActivity.java"
 manifest = root / "AndroidManifest.xml"
 projection = root / "java/com/andrerinas/openheadunit/aap/AapProjectionActivity.kt"
 service = root / "java/de/vd3/fiesta/MediaAccessService.java"
-assert all(p.is_file() for p in (launcher, manifest, projection, service)), "Missing merged files"
+hardware = root / "java/de/vd3/fiesta/MediaHardwareActivity.java"
+assert all(p.is_file() for p in (launcher, manifest, projection, service, hardware)), "Missing merged files"
 ui = launcher.read_text()
 xml = manifest.read_text()
 aa = projection.read_text()
+hw = hardware.read_text()
 assert '{"Start","Audio","Telefon","Navigation","System"}' in ui, "Main tabs out of sync"
 assert 'else if(page==1)music();' in ui and 'else if(page==3)navigation();' in ui, "Audio/navigation routes incorrect"
 assert 'else if(page==4)system();' in ui, "System tab opens wrong view"
