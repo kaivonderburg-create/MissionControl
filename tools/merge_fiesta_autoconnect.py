@@ -23,6 +23,7 @@ for name in ("LauncherActivity.java","MainActivity.java"):
             data,flags=re.S)
         data=data.replace("Empfänger separat erforderlich.", "Empfänger ist Bestandteil von dynamicOS.")
     (javadir/name).write_text(data)
+(src/"res/drawable-nodpi").mkdir(parents=True,exist_ok=True)
 shutil.copy2(fiesta/"res/drawable-nodpi/fiesta_graphite.png",src/"res/drawable-nodpi/fiesta_graphite.png")
 
 setup='''package de.vd3.fiesta;
