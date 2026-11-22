@@ -354,8 +354,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.4.0-unified"')
-g=g.replace('versionCode = 122','versionCode = 104')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.5.0-unified"')
+g=g.replace('versionCode = 122','versionCode = 105')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
@@ -381,137 +381,140 @@ k=k.replace(anchor,anchor+"\n        installFiestaDock()")
 anchor2="    private enum class OverlayState { STARTING, RECONNECTING, HIDDEN }"
 assert k.count(anchor2)==1
 dock=r'''
-    // Lightweight dynamicOS control strip. Projection starts full-screen; the
-    // compact native panel is only shown when the user presses the 44dp switch.
-    // Do not start another receiver activity, WebView, animation, or background task.
-    private var fiestaSplitEnabled = false
-    private var fiestaPanel: LinearLayout? = null
-    private var fiestaToggle: TextView? = null
-    private val fiestaPanelWidth: Int
-        get() = (resources.displayMetrics.widthPixels * 0.22f).toInt()
-            .coerceAtMost((resources.displayMetrics.density * 225).toInt())
-    private fun fiestaLabel(label: String, size: Float = 15f): TextView =
+    // One app, one view hierarchy: the Fiesta dashboard stays mounted behind
+    // the actual Android Auto renderer. The receiver can be FULL or a PiP-like
+    // resizable surface; no screenshot or second decoder is used.
+    private var fiestaViewMode = 0 // 0 full, 1 dashboard+PiP
+    private var fiestaDashboard: LinearLayout? = null
+    private var fiestaSwitcher: TextView? = null
+    private fun fiestaDp(n: Int) = (resources.displayMetrics.density * n).toInt()
+    private fun fiestaText(s: String, sp: Float = 16f, bold: Boolean = false): TextView =
         TextView(this).apply {
-            text = label
-            textSize = size
-            gravity = Gravity.CENTER_VERTICAL
-            setTextColor(Color.WHITE)
-            setPadding(12, 6, 8, 6)
+            text=s; textSize=sp; setTextColor(Color.WHITE)
+            gravity=Gravity.CENTER_VERTICAL
+            setPadding(fiestaDp(12),fiestaDp(6),fiestaDp(10),fiestaDp(6))
+            if(bold) typeface=android.graphics.Typeface.DEFAULT_BOLD
         }
-    private fun fiestaAction(label: String, action: () -> Unit): TextView =
-        fiestaLabel(label, 15f).apply {
-            minHeight = (resources.displayMetrics.density * 48).toInt()
-            setBackgroundColor(Color.rgb(16, 42, 66))
+    private fun fiestaTile(title: String, detail: String, action: () -> Unit): LinearLayout =
+        LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setBackgroundColor(Color.rgb(18,42,68))
+            setPadding(fiestaDp(6),fiestaDp(4),fiestaDp(6),fiestaDp(4))
+            addView(fiestaText(title,17f,true))
+            addView(fiestaText(detail,12f))
+            minimumHeight=fiestaDp(64)
             setOnClickListener { action() }
         }
     private fun fiestaMediaKey(code: Int) {
         val audio = getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
         val now = android.os.SystemClock.uptimeMillis()
-        audio.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0))
-        audio.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, code, 0))
+        audio.dispatchMediaKeyEvent(KeyEvent(now,now,KeyEvent.ACTION_DOWN,code,0))
+        audio.dispatchMediaKeyEvent(KeyEvent(now,now,KeyEvent.ACTION_UP,code,0))
     }
     private fun installFiestaDock() {
-        val host = findViewById<FrameLayout>(R.id.container) ?: return
-        val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(7, 19, 38))
-            setPadding(6, 8, 6, 8)
-            visibility = View.GONE
-            elevation = 12f
+        val host=findViewById<FrameLayout>(R.id.container) ?: return
+        fiestaViewMode = getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getInt("viewmode",0)
+        val dashboard=LinearLayout(this).apply {
+            orientation=LinearLayout.VERTICAL
+            setBackgroundColor(Color.rgb(7,19,38))
+            setPadding(fiestaDp(12),fiestaDp(12),fiestaDp(12),fiestaDp(12))
         }
-        fiestaPanel = panel
-        panel.addView(fiestaLabel("dynamicOS   /   FIESTA", 14f))
-        panel.addView(fiestaAction("⌂  Startseite") {
+        fiestaDashboard=dashboard
+        dashboard.addView(fiestaText("dynamicOS   |   FORD FIESTA",21f,true))
+        dashboard.addView(fiestaText("FIESTA Mk7  ·  W-S 107",13f))
+        val tiles=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+        tiles.addView(fiestaTile("Telefon","Kopplung / Anruf") { showFiestaCommunication() },
+            LinearLayout.LayoutParams(0,-2,1f).apply { rightMargin=fiestaDp(6) })
+        tiles.addView(fiestaTile("Medien","Wiedergabe") { showFiestaMedia() },
+            LinearLayout.LayoutParams(0,-2,1f).apply { rightMargin=fiestaDp(6) })
+        tiles.addView(fiestaTile("Fahrzeug","Fiesta Mk7") {
             startActivity(Intent(this, de.vd3.fiesta.LauncherActivity::class.java))
-        })
-        panel.addView(fiestaAction("☎  Telefon") { showFiestaCommunication() })
-        panel.addView(fiestaAction("♫  Medien") { showFiestaMedia() })
-        panel.addView(fiestaAction("◉  Verbindung") {
-            startActivity(Intent(this, de.vd3.fiesta.WirelessSetupActivity::class.java))
-        })
-        panel.addView(fiestaAction("⛶  Vollbild") {
-            fiestaSplitEnabled = false
-            applyFiestaSplitLayout()
-        })
-        host.addView(panel, FrameLayout.LayoutParams(fiestaPanelWidth,
-            FrameLayout.LayoutParams.MATCH_PARENT, Gravity.RIGHT))
-        val toggle = fiestaAction("▦") {
-            fiestaSplitEnabled = !fiestaSplitEnabled
-            applyFiestaSplitLayout()
-        }.apply {
-            gravity = Gravity.CENTER
-            setBackgroundColor(Color.rgb(8, 31, 57))
-            elevation = 14f
-            contentDescription = "dynamicOS Bedienfeld ein- oder ausblenden"
+        },LinearLayout.LayoutParams(0,-2,1f))
+        dashboard.addView(tiles,LinearLayout.LayoutParams(-1,-2).apply { topMargin=fiestaDp(12) })
+        val modes=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
+        modes.addView(fiestaTile("Android Auto","Vollbild") { fiestaViewMode=0; applyFiestaSplitLayout() },
+            LinearLayout.LayoutParams(0,-2,1f).apply { rightMargin=fiestaDp(6) })
+        modes.addView(fiestaTile("Verbindung","Telefon einrichten") {
+            showFiestaCommunication()
+        },LinearLayout.LayoutParams(0,-2,1f))
+        dashboard.addView(modes,LinearLayout.LayoutParams(-1,-2).apply { topMargin=fiestaDp(8) })
+        host.addView(dashboard,0,FrameLayout.LayoutParams(-1,-1))
+        val switcher=fiestaText("▣  Ansicht",14f,true).apply {
+            setBackgroundColor(Color.rgb(15,58,100))
+            elevation=fiestaDp(8).toFloat()
+            contentDescription="Android Auto Vollbild oder Bild-in-Bild umschalten"
+            setOnClickListener {
+                fiestaViewMode=if(fiestaViewMode==0)1 else 0
+                applyFiestaSplitLayout()
+            }
         }
-        fiestaToggle = toggle
-        host.addView(toggle, FrameLayout.LayoutParams(
-            (resources.displayMetrics.density * 42).toInt(),
-            (resources.displayMetrics.density * 48).toInt(),
-            Gravity.RIGHT or Gravity.TOP))
-        toggle.bringToFront()
+        fiestaSwitcher=switcher
+        host.addView(switcher,FrameLayout.LayoutParams(fiestaDp(104),fiestaDp(48),Gravity.RIGHT or Gravity.TOP))
+        applyFiestaSplitLayout()
     }
     private fun applyFiestaSplitLayout() {
-        val panel = fiestaPanel ?: return
-        panel.visibility = if (fiestaSplitEnabled) View.VISIBLE else View.GONE
-        if (::projectionView.isInitialized) {
-            val view = projectionView as View
-            val lp = (view.layoutParams as? FrameLayout.LayoutParams)
-                ?: FrameLayout.LayoutParams(-1, -1)
-            lp.width = FrameLayout.LayoutParams.MATCH_PARENT
-            lp.height = FrameLayout.LayoutParams.MATCH_PARENT
-            lp.rightMargin = if (fiestaSplitEnabled) fiestaPanelWidth else 0
-            lp.gravity = Gravity.LEFT or Gravity.TOP
-            view.layoutParams = lp
+        val dashboard=fiestaDashboard ?: return
+        val floating=fiestaViewMode==1
+        dashboard.visibility=if(floating)View.VISIBLE else View.GONE
+        getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putInt("viewmode",fiestaViewMode).apply()
+        if(::projectionView.isInitialized) {
+            val view=projectionView as View
+            val lp=(view.layoutParams as? FrameLayout.LayoutParams) ?: FrameLayout.LayoutParams(-1,-1)
+            val w=resources.displayMetrics.widthPixels
+            val h=resources.displayMetrics.heightPixels
+            if(floating) {
+                // PiP occupies the right 61% of a 1024x600 display, while the
+                // Fiesta dashboard remains visible on the left and underneath.
+                lp.width=(w*0.61f).toInt()
+                lp.height=(h*0.73f).toInt()
+                lp.gravity=Gravity.RIGHT or Gravity.BOTTOM
+                lp.setMargins(0,fiestaDp(64),fiestaDp(13),fiestaDp(14))
+                view.elevation=fiestaDp(5).toFloat()
+            } else {
+                lp.width=FrameLayout.LayoutParams.MATCH_PARENT
+                lp.height=FrameLayout.LayoutParams.MATCH_PARENT
+                lp.gravity=Gravity.TOP or Gravity.LEFT
+                lp.setMargins(0,0,0,0)
+                view.elevation=0f
+            }
+            view.layoutParams=lp
             view.requestLayout()
         }
-        panel.bringToFront()
-        fiestaToggle?.bringToFront()
+        fiestaSwitcher?.bringToFront()
     }
     private fun showFiestaCommunication() {
-        val bluetooth = try {
-            (getSystemService(android.content.Context.BLUETOOTH_SERVICE)
-                as? android.bluetooth.BluetoothManager)?.adapter
-        } catch (_: Exception) { null }
-        val state = when {
-            bluetooth == null -> "Android-Bluetooth nicht verfügbar"
-            bluetooth.isEnabled -> "Bluetooth eingeschaltet"
-            else -> "Bluetooth ausgeschaltet"
-        }
+        val state = try {
+            val manager=getSystemService(android.content.Context.BLUETOOTH_SERVICE) as? android.bluetooth.BluetoothManager
+            when { manager?.adapter==null -> "Kein Android-Bluetooth"
+                manager.adapter.isEnabled -> "Bluetooth eingeschaltet"
+                else -> "Bluetooth ausgeschaltet" }
+        } catch (_: Exception) { "Hersteller-Bluetooth nicht über Android erreichbar" }
         androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("dynamicOS  /  Telefon")
-            .setMessage("$state\n\nAnrufe laufen über das gekoppelte Smartphone und ein kompatibles HFP-Profil der Headunit.")
-            .setPositiveButton("Kopplung") { _, _ ->
-                startActivity(Intent(this, de.vd3.fiesta.WirelessSetupActivity::class.java))
+            .setTitle("Fiesta  /  Telefon")
+            .setMessage("$state\n\nTelefonie und Freisprechen erfordern ein von der Firmware unterstütztes HFP-Profil.")
+            .setPositiveButton("Koppeln") { _, _ ->
+                startActivity(Intent(this,de.vd3.fiesta.WirelessSetupActivity::class.java))
             }
-            .setNeutralButton("Telefon öffnen") { _, _ ->
+            .setNeutralButton("Wählen") { _, _ ->
                 try { startActivity(Intent(Intent.ACTION_DIAL)) }
-                catch (_: Exception) {
-                    Toast.makeText(this, "Telefoniefunktion der Firmware nicht verfügbar", Toast.LENGTH_LONG).show()
-                }
+                catch (_: Exception) { Toast.makeText(this,"Telefonie nicht verfügbar",Toast.LENGTH_LONG).show() }
             }
-            .setNegativeButton("Zurück", null)
-            .show()
+            .setNegativeButton("Schließen",null).show()
     }
     private fun showFiestaMedia() {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(8, 8, 8, 8)
+        val row=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL; setPadding(6,8,6,8) }
+        fun add(label:String,code:Int) {
+            row.addView(fiestaText(label,21f,true).apply {
+                gravity=Gravity.CENTER
+                setOnClickListener { fiestaMediaKey(code) }
+            },LinearLayout.LayoutParams(0,fiestaDp(56),1f))
         }
-        fun media(label: String, code: Int) {
-            row.addView(fiestaAction(label) { fiestaMediaKey(code) },
-                LinearLayout.LayoutParams(0, -2, 1f))
-        }
-        media("❮", KeyEvent.KEYCODE_MEDIA_PREVIOUS)
-        media("▶Ⅱ", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
-        media("❯", KeyEvent.KEYCODE_MEDIA_NEXT)
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("dynamicOS  /  Medien")
-            .setView(row)
-            .setPositiveButton("Schließen", null)
-            .show()
+        add("❮❮",KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+        add("▶Ⅱ",KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+        add("❯❯",KeyEvent.KEYCODE_MEDIA_NEXT)
+        androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Fiesta  /  Medien")
+            .setView(row).setPositiveButton("Schließen",null).show()
     }
-
 '''
 k=k.replace(anchor2,dock+anchor2)
 render_anchor="        container.addView(view)"
