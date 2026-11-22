@@ -75,7 +75,8 @@ public final class LauncherActivity extends Activity {
     private TextView row(String title, String description, Runnable action) {
         TextView t = control(title,action);
         t.setGravity(Gravity.CENTER_VERTICAL);
-        t.setPadding(dp(17),0,dp(14),0);
+        t.setPadding(dp(17),dp(9),dp(14),dp(9));
+        t.setMinHeight(dp(54));
         t.setContentDescription(title + ": " + description);
         return t;
     }
@@ -86,7 +87,12 @@ public final class LauncherActivity extends Activity {
             Toast.makeText(this,"Funktion nicht verfügbar",Toast.LENGTH_SHORT).show();
         }
     }
-    private void openAuto() { open(com.andrerinas.openheadunit.main.MainActivity.class); }
+    private void openAuto() {
+        if(aaMedia().getBoolean("connected",false))
+            open(com.andrerinas.openheadunit.aap.AapProjectionActivity.class);
+        else
+            open(com.andrerinas.openheadunit.main.MainActivity.class);
+    }
     private void openSetting(String name) {
         try { startActivity(new Intent(name)); }
         catch (Exception e) { Toast.makeText(this,"Einstellung nicht verfügbar",Toast.LENGTH_SHORT).show(); }
@@ -180,9 +186,7 @@ public final class LauncherActivity extends Activity {
         return aa==null||aa.isEmpty()?"Medien und Navigation auf deinem Smartphone":aa;
     }
     private void playbackButtons(LinearLayout target,MediaController session){
-        if(session==null){
-            // Do not show non-working skips when the phone session is not exposed
-            // to Android's local MediaSessionManager.
+        if(session==null && !aaMedia().getBoolean("connected",false)){
             target.addView(control("ANDROID AUTO ÖFFNEN",this::openAuto),
                 new LinearLayout.LayoutParams(-1,dp(54)));
             return;
@@ -249,7 +253,8 @@ public final class LauncherActivity extends Activity {
     private void mediaCommand(int key){
         MediaController c=activeMedia();
         if(c==null){
-            openAuto();
+            if(!FiestaMediaBridge.sendMediaKey(this,key))openAuto();
+            else go(1);
             return;
         }
         MediaController.TransportControls t=c.getTransportControls();
@@ -267,8 +272,8 @@ public final class LauncherActivity extends Activity {
         MediaController controller=activeMedia();
         add(body,text(mediaTitle(controller),24,true,FORE),20);
         add(body,text(mediaArtist(controller),14,false,SECONDARY),6);
-        if(controller==null){
-            add(body,row("Android Auto öffnen","Aktive Smartphone-Wiedergabe",this::openAuto),22);
+        if(controller==null && !aaMedia().getBoolean("connected",false)){
+            add(body,row("Android Auto öffnen","Smartphone verbinden",this::openAuto),22);
         }else{
             LinearLayout controls=new LinearLayout(this);
             LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(-1,dp(67));
