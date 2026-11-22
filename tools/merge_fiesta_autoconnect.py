@@ -105,6 +105,7 @@ for name in ("LauncherActivity.java","MainActivity.java"):
 shutil.copy2(fiesta/"res/drawable-nodpi/fiesta_graphite.png",src/"res/drawable-nodpi/fiesta_graphite.png")
 
 setup=r'''package de.vd3.fiesta;
+
 import android.app.Activity;
 import android.os.Bundle;
 import android.content.Context;
@@ -114,134 +115,161 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothAdapter;
 import android.net.wifi.WifiManager;
 import android.net.wifi.p2p.WifiP2pManager;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
+import android.widget.FrameLayout;
 import android.widget.Toast;
 
-/** Fully native low-overhead SYNC-inspired Fiesta first-run flow. */
+/** 1024x600 landscape responsive onboard configuration.
+ * Fixed dual-column composition; no ScrollView, WebView, or animation loop.
+ */
 public final class SetupActivity extends Activity {
-    private static final int BG=0xff071326, CARD=0xff142c47, ACCENT=0xff429df8;
-    private static final int FG=0xfff6fbff, SUB=0xffadc3d9;
-    private LinearLayout root, content, buttons;
+    private static final int BG=0xff071525, SIDE=0xff102a44, CARD=0xff183650;
+    private static final int ACCENT=0xff3b9df5, FG=0xfff7fbff, SUB=0xffb7cada, GREEN=0xff79e1ae;
     private int page=0;
-    private int dp(int value){return (int)(getResources().getDisplayMetrics().density*value+.5f);}
-    private GradientDrawable drawable(int color,int border){
-        GradientDrawable d=new GradientDrawable(); d.setColor(color);d.setCornerRadius(dp(12));
-        if(border!=0)d.setStroke(dp(1),border);return d;
+    private LinearLayout root, left, right, tiles, controls;
+    private int dp(float n){ return (int)(getResources().getDisplayMetrics().density*n+0.5f); }
+    private GradientDrawable shape(int fill,int line){
+        GradientDrawable d=new GradientDrawable();d.setColor(fill);d.setCornerRadius(dp(12));
+        if(line!=0)d.setStroke(dp(1),line);return d;
     }
-    private TextView text(String value,int size,boolean bold,int color){
-        TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);
-        t.setGravity(Gravity.CENTER_VERTICAL);
-        if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
-        return t;
+    private TextView label(String value,float sp,int color,boolean bold){
+        TextView t=new TextView(this); t.setText(value);t.setTextSize(sp);t.setTextColor(color);
+        t.setGravity(Gravity.CENTER_VERTICAL);t.setMaxLines(2);
+        if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;
     }
-    private void add(LinearLayout parent, View child,int margin){
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=dp(margin);parent.addView(child,lp);
+    private LinearLayout vertical(){
+        LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);return l;
     }
-    private void tile(String icon,String heading,String detail,String status,Runnable action){
-        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(drawable(CARD,0xff2b4c6a));
-        card.setPadding(dp(16),dp(10),dp(16),dp(10));
-        add(card,text(icon+"   "+heading,18,true,FG),0);
-        add(card,text(detail,13,false,SUB),3);
-        if(status!=null)add(card,text(status,13,true,0xff73e0b2),4);
-        if(action!=null){card.setOnClickListener(v->action.run());card.setClickable(true);}
-        add(content,card,7);
+    private void add(LinearLayout parent,View view,int marginTop){
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=dp(marginTop);
+        parent.addView(view,lp);
     }
-    private void action(String caption,boolean primary,Runnable run){
-        TextView t=text(caption,16,true,FG);t.setGravity(Gravity.CENTER);
-        t.setBackground(drawable(primary?ACCENT:CARD,0));
-        t.setMinHeight(dp(47));t.setOnClickListener(v->run.run());
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(47),1f);
-        lp.setMargins(dp(4),0,dp(4),0);buttons.addView(t,lp);
+    private void tile(String symbol,String title,String detail,String status,Runnable action){
+        LinearLayout row=new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(14),dp(8),dp(14),dp(8));
+        row.setBackground(shape(CARD,0xff294963));
+        TextView glyph=label(symbol,24,ACCENT,true);glyph.setGravity(Gravity.CENTER);
+        row.addView(glyph,new LinearLayout.LayoutParams(dp(44),dp(48)));
+        LinearLayout info=vertical();
+        add(info,label(title,17,FG,true),0);
+        add(info,label(detail,12,SUB,false),2);
+        row.addView(info,new LinearLayout.LayoutParams(0,-2,1f));
+        if(status!=null){
+            TextView state=label(status,12,GREEN,true);state.setGravity(Gravity.CENTER);
+            state.setPadding(dp(8),dp(4),dp(8),dp(4));
+            row.addView(state,new LinearLayout.LayoutParams(dp(165),-2));
+        }
+        if(action!=null){row.setOnClickListener(v->action.run());row.setClickable(true);}
+        add(tiles,row,8);
     }
-    private BluetoothAdapter bluetooth(){
-        try{
-            BluetoothManager m=(BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
-            return m==null?null:m.getAdapter();
-        }catch(Exception ex){return null;}
+    private void button(String text,boolean primary,Runnable action){
+        TextView b=label(text,16,FG,true);b.setGravity(Gravity.CENTER);
+        b.setBackground(shape(primary?ACCENT:CARD,primary?0:0xff395875));
+        b.setOnClickListener(v->action.run());
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(52),1f);
+        lp.leftMargin=dp(4);lp.rightMargin=dp(4);controls.addView(b,lp);
     }
-    private String btState(){
-        try{BluetoothAdapter a=bluetooth();return a==null?"Hersteller-Bluetooth nicht erkannt":a.isEnabled()?
-            "Bereit · "+a.getBondedDevices().size()+" gekoppelte Geräte":"Ausgeschaltet";}
-        catch(Exception e){return "Kopplungsstatus nicht zugänglich";}
+    private String bt(){
+        try{BluetoothManager m=(BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
+            BluetoothAdapter a=m==null?null:m.getAdapter();
+            return a==null?"Nicht erkannt":a.isEnabled()?"Aktiv":"Deaktiviert";
+        }catch(Exception e){return "Nicht zugänglich";}
     }
-    private String wifiState(){
-        try{WifiManager w=(WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-            return w==null?"WLAN nicht erkannt":w.isWifiEnabled()?"WLAN aktiviert":"WLAN ausgeschaltet";}
-        catch(Exception e){return "WLAN-Status unbekannt";}
+    private String wifi(){
+        try{WifiManager m=(WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            return m==null?"Nicht erkannt":m.isWifiEnabled()?"Aktiv":"Deaktiviert";
+        }catch(Exception e){return "Nicht zugänglich";}
     }
-    private void open(String action){
+    private void settings(String action){
         try{startActivity(new Intent(action));}
-        catch(Exception e){Toast.makeText(this,"Diese Firmware unterstützt die Einstellung nicht",Toast.LENGTH_LONG).show();}
+        catch(Exception e){Toast.makeText(this,"Einstellung auf dieser Firmware nicht verfügbar",Toast.LENGTH_LONG).show();}
     }
-    private void go(int p){page=p;render();}
-    private void done(){
+    private void go(int n){page=n;render();}
+    private void finishSetup(){
         getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putBoolean("complete",true).apply();
         startActivity(new Intent(this,LauncherActivity.class));finish();
     }
-    @Override public void onCreate(Bundle saved){
-        super.onCreate(saved);
-        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-        if(saved!=null)page=saved.getInt("page",0);render();
+    @Override public void onCreate(Bundle state){
+        super.onCreate(state);
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_STABLE|
+            View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+        if(state!=null)page=state.getInt("page",0);render();
     }
     @Override protected void onSaveInstanceState(Bundle b){b.putInt("page",page);super.onSaveInstanceState(b);}
     @Override protected void onResume(){super.onResume();if(root!=null&&page==2)render();}
     private void render(){
-        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(BG);root.setPadding(dp(24),dp(9),dp(24),dp(9));
-        add(root,text("dynamicOS     FIESTA  /  UNIFIED",16,true,FG),0);
-        LinearLayout progress=new LinearLayout(this);progress.setOrientation(LinearLayout.HORIZONTAL);
-        String[] labels={"01 WILLKOMMEN","02 SYSTEM","03 VERBINDUNG","04 ANSICHT"};
-        for(int i=0;i<4;i++){
-            TextView t=text(labels[i],12,i==page,i==page?ACCENT:SUB);
-            t.setGravity(Gravity.CENTER);progress.addView(t,new LinearLayout.LayoutParams(0,dp(35),1f));
-        }
-        add(root,progress,5);
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);
-        content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(0,dp(4),0,dp(8));scroll.addView(content);
-        root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1f));
-        buttons=new LinearLayout(this);buttons.setOrientation(LinearLayout.HORIZONTAL);
-        root.addView(buttons,new LinearLayout.LayoutParams(-1,-2));
+        root=new LinearLayout(this);root.setOrientation(LinearLayout.HORIZONTAL);
+        root.setBackgroundColor(BG);root.setPadding(dp(12),dp(12),dp(12),dp(12));
+        left=vertical();left.setBackground(shape(SIDE,0xff1e4160));
+        left.setPadding(dp(22),dp(16),dp(18),dp(14));
+        LinearLayout.LayoutParams l=new LinearLayout.LayoutParams(0,-1,.34f);
+        l.rightMargin=dp(12);root.addView(left,l);
 
+        add(left,label("dynamicOS",23,FG,true),0);
+        add(left,label("FORD FIESTA  ·  UNIFIED",12,ACCENT,true),3);
+        View line=new View(this);line.setBackgroundColor(0xff2c4f6c);
+        add(left,line,18);line.getLayoutParams().height=dp(1);
+        String[] sections={"WILLKOMMEN","FAHRZEUG","VERBINDUNG","ANZEIGE"};
+        for(int i=0;i<4;i++){
+            TextView step=label((i+1<10?"0":"")+(i+1)+"    "+sections[i],
+                14,i==page?FG:(i<page?ACCENT:SUB),i==page);
+            step.setBackground(i==page?shape(0xff24547b,0):null);
+            step.setPadding(dp(11),0,0,0);
+            add(left,step,9);step.getLayoutParams().height=dp(44);
+        }
+        left.addView(new View(this),new LinearLayout.LayoutParams(1,0,1f));
+        add(left,label("FIESTA Mk7  /  2015",13,SUB,false),4);
+        add(left,label("Eine Oberfläche. Ein System.",12,SUB,false),3);
+
+        right=vertical();right.setPadding(dp(8),dp(7),dp(5),dp(3));
+        root.addView(right,new LinearLayout.LayoutParams(0,-1,.66f));
+        LinearLayout header=vertical();right.addView(header);
+        tiles=vertical();right.addView(tiles,new LinearLayout.LayoutParams(-1,0,1f));
+        controls=new LinearLayout(this);controls.setOrientation(LinearLayout.HORIZONTAL);
+        right.addView(controls,new LinearLayout.LayoutParams(-1,-2));
         if(page==0){
-            add(content,text("Willkommen in deinem Fiesta.",28,true,FG),2);
-            add(content,text("Ein modernes, gemeinsames System für Fahrzeug, Medien, Telefon und Android Auto.",16,false,SUB),9);
-            tile("◆","Fiesta Unified","Die Bedienung bleibt in einer einheitlichen Oberfläche.","Für Ford Fiesta Mk7 optimiert",null);
-            action("Einrichtung starten",true,()->go(1));
-            action("Überspringen",false,this::done);
+            add(header,label("Willkommen in deinem Fiesta",26,FG,true),0);
+            add(header,label("Dein Infotainment. Navigation, Medien, Telefon und Fahrzeug – nahtlos vereint.",14,SUB,false),7);
+            tile("◆","Fiesta Unified","Optimiert für die Headunit und das Fahrzeugprofil","Bereit",null);
+            tile("▣","Eine Bedienoberfläche","Android Auto als Vollbild oder Fenster im Fiesta-Dashboard",null,null);
+            button("Einrichtung starten",true,()->go(1));
+            button("Später",false,this::finishSetup);
         }else if(page==1){
-            add(content,text("Dein System. Dein Fiesta.",27,true,FG),0);
-            add(content,text("Die Funktionen werden automatisch an verfügbare Hardware angepasst.",15,false,SUB),6);
-            tile("▣","Fiesta Mk7","Fahrzeugprofil · Baujahr 2015 · Raise CAN-Decoder","Profil gespeichert",null);
-            tile("◉","Sparsame Oberfläche","Native Android-Elemente ohne WebView oder laufende Designanimationen","Für 1 GB RAM ausgelegt",null);
-            action("Zurück",false,()->go(0));action("Weiter",true,()->go(2));
+            add(header,label("Dein Fahrzeug",26,FG,true),0);
+            add(header,label("Die Darstellung und Kernfunktionen sind auf deinen Fiesta abgestimmt.",14,SUB,false),7);
+            tile("▣","Ford Fiesta Mk7","2015 · Fahrzeugprofil W-S 107","Gespeichert",null);
+            tile("◉","Raise CAN-Decoder","Fahrzeugsignale nur bei zugänglicher OEM-Schnittstelle","Automatisch",null);
+            tile("⚡","Ressourcenschonend","Native Oberfläche für 1 GB RAM · keine WebView",null,null);
+            button("Zurück",false,()->go(0));button("Weiter",true,()->go(2));
         }else if(page==2){
-            add(content,text("Smartphone und Verbindung",26,true,FG),0);
-            add(content,text("Erkannte Schnittstellen werden direkt geprüft. Bei fehlenden Systemrechten wird nur die dafür nötige Einstellung geöffnet.",14,false,SUB),4);
-            tile("ᛒ","Bluetooth","Android- und OEM-Kopplung prüfen",btState(),()->
-                open(Settings.ACTION_BLUETOOTH_SETTINGS));
-            tile("◉","WLAN","Kabelloser Android-Auto-Datenkanal",wifiState(),()->
-                open(Settings.ACTION_WIFI_SETTINGS));
+            add(header,label("Verbindungen",26,FG,true),0);
+            add(header,label("Schnittstellen prüfen und nur bei Bedarf konfigurieren.",14,SUB,false),5);
+            tile("ᛒ","Bluetooth","Smartphone und Freisprechschnittstelle",bt(),()->
+                settings(Settings.ACTION_BLUETOOTH_SETTINGS));
+            tile("◉","WLAN","Kabellose Android-Auto-Verbindung",wifi(),()->
+                settings(Settings.ACTION_WIFI_SETTINGS));
             WifiP2pManager p=(WifiP2pManager)getSystemService(Context.WIFI_P2P_SERVICE);
-            tile("⇄","Wi-Fi Direct","Unterstützung der Android-Schnittstelle",p!=null?"Schnittstelle vorhanden":"Schnittstelle nicht verfügbar",null);
-            action("Zurück",false,()->go(1));action("Weiter",true,()->go(3));
+            tile("⇄","Wi-Fi Direct","Native Verbindungsunterstützung",p==null?"Nicht erkannt":"Vorhanden",null);
+            button("Zurück",false,()->go(1));button("Weiter",true,()->go(3));
         }else{
-            add(content,text("Dein Fiesta ist bereit.",28,true,FG),0);
-            add(content,text("Wähle, wie Android Auto innerhalb von dynamicOS angezeigt werden soll.",15,false,SUB),7);
-            tile("▣","Fiesta-Dashboard + Android Auto","Projektion als kompaktes Fenster im Fiesta-System",
-                getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getInt("viewmode",0)==1?"Ausgewählt":"Antippen zum Auswählen",
-                ()->{getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putInt("viewmode",1).apply();render();});
-            tile("⛶","Android Auto Vollbild","Jederzeit über den Ansichts-Schalter umschaltbar",
-                getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getInt("viewmode",0)==0?"Ausgewählt":"Antippen zum Auswählen",
-                ()->{getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putInt("viewmode",0).apply();render();});
-            action("Zurück",false,()->go(2));action("Fiesta starten",true,this::done);
+            add(header,label("Ansicht auswählen",26,FG,true),0);
+            add(header,label("Jederzeit während der Fahrt über die Ansichtssteuerung umschalten.",14,SUB,false),7);
+            boolean pip=getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getInt("viewmode",0)==1;
+            tile("▣","Fiesta + Android Auto","Android Auto als Fenster im Fiesta-Dashboard",pip?"Ausgewählt":"Wählen",()->
+                {getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putInt("viewmode",1).apply();render();});
+            tile("⛶","Android Auto Vollbild","Android Auto nutzt die gesamte Displayfläche",!pip?"Ausgewählt":"Wählen",()->
+                {getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putInt("viewmode",0).apply();render();});
+            button("Zurück",false,()->go(2));button("Fiesta starten",true,this::finishSetup);
         }
         setContentView(root);
     }
@@ -354,8 +382,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.5.0-unified"')
-g=g.replace('versionCode = 122','versionCode = 105')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.6.0-unified"')
+g=g.replace('versionCode = 122','versionCode = 106')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
