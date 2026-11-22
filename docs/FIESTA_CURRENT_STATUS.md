@@ -27,3 +27,9 @@ Einzige eigenständige APK mit nativem Ford-Automotive-Launcher und integriertem
 
 ## Arbeitsregeln
 Keine Behauptung einer fertigen APK ohne Build und Gerätetest. Sicherungsbranch nicht überschreiben. Projektname exakt dynamicOS/ Ford Automotive.
+
+## Abschlussversuch / Build-Auslösung
+- Ein isolierter GitHub-Actions-Workflow ist auf dem Standardbranch `master` angelegt: `.github/workflows/ford-automotive-feature-verification.yml`, Commit `de40fca484d528ea062f46accb02756eade86ebf`.
+- Dieser Workflow checkt ausschließlich `feature/fiesta-media-polish-20261122` aus, lädt den gepinnten Receiver, führt beide Codebasen zusammen, kompiliert `assembleGithubDebug`, prüft die APK-Metadaten und archiviert die APK bei Erfolg.
+- Es liegt noch kein über die verfügbaren Schnittstellen bestätigtes Ergebnis dieses neuen Workflow-Laufs vor; keine Aussage über APK-Fertigstellung oder Hardwaretests.
+- GitHub Actions: https://github.com/kaivonderburg-create/MissionControl/actions/workflows/ford-automotive-feature-verification.yml
