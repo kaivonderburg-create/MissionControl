@@ -661,22 +661,58 @@ dock=r'''
         fiestaShell=shell
         val left=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(13,37,57))
-            setPadding(fd(13),fd(17),fd(11),fd(8))
+            setBackgroundColor(Color.rgb(10,28,46))
+            setPadding(fd(15),fd(12),fd(15),fd(9))
         }
-        left.addView(ft("dynamicOS",20f,true))
-        left.addView(ft("FORD FIESTA  ·  Mk7",12f))
-        val separator=View(this).apply{setBackgroundColor(Color.rgb(35,78,105))}
-        left.addView(separator,LinearLayout.LayoutParams(-1,fd(1)).apply{topMargin=fd(13)})
-        left.addView(ft("Willkommen an Bord",17f,true),
-            LinearLayout.LayoutParams(-1,fd(55)))
+        val statusBar=LinearLayout(this).apply {
+            orientation=LinearLayout.HORIZONTAL;gravity=Gravity.CENTER_VERTICAL
+        }
+        statusBar.addView(ft("dynamicOS",19f,true),
+            LinearLayout.LayoutParams(0,fd(43),1f))
+        val time=ft(java.text.SimpleDateFormat("HH:mm",java.util.Locale.GERMANY)
+            .format(java.util.Date()),15f,true).apply { gravity=Gravity.RIGHT or Gravity.CENTER_VERTICAL }
+        statusBar.addView(time)
+        left.addView(statusBar)
+        left.addView(ft("FIESTA  •  2015",12f,true))
+        val carPanel=FrameLayout(this).apply {
+            background=android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(26,62,94),Color.rgb(9,28,45))
+            ).apply { cornerRadius=fd(14).toFloat() }
+        }
         val photo=ImageView(this).apply {
             setImageResource(com.andrerinas.openheadunit.R.drawable.fiesta_graphite)
             scaleType=ImageView.ScaleType.FIT_CENTER
+            setPadding(fd(8),fd(8),fd(8),fd(8))
         }
-        left.addView(photo,LinearLayout.LayoutParams(-1,0,1f))
-        left.addView(ft("FIESTA 2015  /  W-S 107",12f))
-        left.addView(ft("Android Auto verbunden",12f))
+        carPanel.addView(photo,FrameLayout.LayoutParams(-1,-1))
+        left.addView(carPanel,LinearLayout.LayoutParams(-1,0,1f).apply {
+            topMargin=fd(9);bottomMargin=fd(8)
+        })
+        val carName=ft("Ford Fiesta Mk7",17f,true)
+        left.addView(carName)
+        left.addView(ft("W-S 107  ·  Graphitgrau",12f))
+        val separator=View(this).apply{setBackgroundColor(Color.rgb(36,76,102))}
+        left.addView(separator,LinearLayout.LayoutParams(-1,fd(1)).apply{
+            topMargin=fd(9);bottomMargin=fd(9)
+        })
+        val connection=ft(if(commManager.isConnected)
+            "●  Android Auto aktiv" else "○  Smartphone verbinden",13f,true).apply {
+            setTextColor(Color.rgb(119,209,174))
+            setOnClickListener { showFiestaCommunication() }
+        }
+        left.addView(connection)
+        val actions=LinearLayout(this).apply {
+            orientation=LinearLayout.HORIZONTAL
+            gravity=Gravity.CENTER_VERTICAL
+        }
+        actions.addView(clickText("❮") { fiestaMediaKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS) },
+            LinearLayout.LayoutParams(0,fd(42),1f))
+        actions.addView(clickText("▶Ⅱ") { fiestaMediaKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE) },
+            LinearLayout.LayoutParams(0,fd(42),1f))
+        actions.addView(clickText("❯") { fiestaMediaKey(KeyEvent.KEYCODE_MEDIA_NEXT) },
+            LinearLayout.LayoutParams(0,fd(42),1f))
+        left.addView(actions,LinearLayout.LayoutParams(-1,fd(42)).apply{topMargin=fd(7)})
         val upper=FrameLayout(this)
         upper.addView(left,FrameLayout.LayoutParams(
             (resources.displayMetrics.widthPixels*.27f).toInt(),-1,Gravity.LEFT))
