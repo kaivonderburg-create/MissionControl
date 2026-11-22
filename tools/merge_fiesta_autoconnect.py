@@ -215,14 +215,14 @@ launcher=launcher.replace('else if(page==1)navigation();\n        else if(page==
 # Keep sixth page addressable for vehicle maintenance, but out of the primary tab row.
 launcher=launcher.replace('else if(page==4)vehicle();\n        else system();',
                           'else if(page==4)system();\n        else vehicle();')
+# Page remapping must occur atomically: music=1, phone=2, navigation=3,
+# settings=4 and vehicle diagnostics=5.
+assert 'else if(page==4)system();' in launcher
+assert 'else vehicle();' in launcher
 launcher=launcher.replace('()->jump(4)', '()->jump(5)')
 launcher=launcher.replace('()->jump(3)', '()->jump(1)')
-launcher=launcher.replace('()->jump(2)', '()->jump(2)')
-launcher=launcher.replace('add(right,subtitle,5);', 'add(right,subtitle,5);')
 launcher=launcher.replace('Navigation","Android Auto und Karten",this::openReceiver',
                           'Navigation","Android Auto und Karten",()->jump(3)')
-launcher=launcher.replace('LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.HORIZONTAL);',
-                          'LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.HORIZONTAL);')
 launcher=launcher.replace('LinearLayout auto=card("Android Auto","Vollbild oder Fiesta-Ansicht",this::openReceiver);',
                           'LinearLayout auto=card("Android Auto","Projektion starten",this::openReceiver);')
 launcher=launcher.replace('TextView brand=text("dynamicOS  |  FIESTA",20,true,WHITE);',
@@ -230,7 +230,7 @@ launcher=launcher.replace('TextView brand=text("dynamicOS  |  FIESTA",20,true,WH
 launcher=launcher.replace('TextView prompt=text("Guten Tag. Wohin geht die Fahrt?",22,true,WHITE);',
                           'TextView prompt=text("Ford SYNC",25,true,WHITE);')
 launcher=launcher.replace('TextView subtitle=text("Alles in einem System. Bereit für Navigation, Telefon und Musik.",13,false,MUTED);',
-                          'TextView subtitle=text("Navigation  ·  Audio  ·  Telefon",14,false,MUTED);')
+                          'TextView subtitle=text("Audio  ·  Telefon  ·  Navigation",14,false,MUTED);')
 # One primary media path; use Android MediaSession APIs where notification access
 # is granted, falling back to standard media keys rather than silently doing nothing.
 launcher=launcher.replace('import android.media.AudioManager;',
@@ -852,7 +852,7 @@ dock=r'''
             elevation=fd(10).toFloat()
         }
         fiestaSwitcher=toggle
-        host.addView(toggle,FrameLayout.LayoutParams(fd(143),fd(49),Gravity.RIGHT or Gravity.TOP))
+        host.addView(toggle,FrameLayout.LayoutParams(fd(143),fd(48),Gravity.LEFT or Gravity.BOTTOM))
         applyFiestaSplitLayout()
     }
     private fun applyFiestaSplitLayout() {
