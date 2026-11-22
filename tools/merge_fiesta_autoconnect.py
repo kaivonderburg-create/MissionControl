@@ -26,6 +26,80 @@ for name in ("LauncherActivity.java","MainActivity.java"):
         data=data.replace('() -> setting(Settings.ACTION_WIFI_SETTINGS)', 'this::openWirelessSetup')
         data=data.replace('    private void openMusic() {',
             '    private void openWirelessSetup() { startActivity(new Intent(this, WirelessSetupActivity.class)); }\n\n    private void openMusic() {')
+
+        # Unified dark-blue launcher with six primary actions, designed for 1 GB RAM.
+        data=data.replace("private final int bg = 0xff070f1b, panel = 0xff0e2030, cyan = 0xff00dcef;",
+            "private final int bg = 0xff071326, panel = 0xff122943, cyan = 0xff3d9dff;")
+        data=data.replace("new LinearLayout.LayoutParams(dp(66), dp(66))",
+            "new LinearLayout.LayoutParams(dp(45), dp(45))")
+        data=data.replace('label(title, 22, Color.WHITE, true)',
+            'label(title, 17, Color.WHITE, true)')
+        data=data.replace("new LinearLayout.LayoutParams(-1, dp(42))",
+            "new LinearLayout.LayoutParams(-1, dp(32))")
+        old_home_start=data.index("    private void home() {")
+        old_home_end=data.index("    private void addTile(",old_home_start)
+        new_home=r'''    private void home() {
+        scaffold("Fiesta Unified");
+        LinearLayout content = new LinearLayout(this);
+        content.setPadding(0, dp(12), 0, dp(10));
+        root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
+
+        LinearLayout vehicle = new LinearLayout(this);
+        vehicle.setOrientation(LinearLayout.VERTICAL);
+        vehicle.setGravity(Gravity.CENTER);
+        vehicle.setPadding(dp(6), dp(6), dp(6), dp(6));
+        vehicle.setBackground(shape(0xff102641, 0xff235178));
+        ImageView car = new ImageView(this);
+        car.setImageResource(R.drawable.fiesta_graphite);
+        car.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        vehicle.addView(car, new LinearLayout.LayoutParams(-1, 0, 1));
+        TextView model = label("FORD FIESTA  /  Mk7", 18, Color.WHITE, true);
+        model.setGravity(Gravity.CENTER);
+        vehicle.addView(model, new LinearLayout.LayoutParams(-1, dp(30)));
+        TextView subtitle = label("W-S 107  ·  2015", 13, 0xffa4bfd4, false);
+        subtitle.setGravity(Gravity.CENTER);
+        vehicle.addView(subtitle, new LinearLayout.LayoutParams(-1, dp(24)));
+        LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(0,-1,.35f);
+        vp.rightMargin = dp(10);
+        content.addView(vehicle,vp);
+
+        GridLayout grid = new GridLayout(this);
+        grid.setColumnCount(3);
+        grid.setRowCount(2);
+        content.addView(grid,new LinearLayout.LayoutParams(0,-1,.65f));
+        addTile(grid,"auto","Android Auto",true,this::launchReceiver,0,0);
+        addTile(grid,"phone","Telefon",false,this::openPhone,0,1);
+        addTile(grid,"music","Medien",false,this::openMusic,0,2);
+        addTile(grid,"car","Fahrzeug",false,this::vehicleMenu,1,0);
+        addTile(grid,"wifi","Verbindung",false,this::openWirelessSetup,1,1);
+        addTile(grid,"settings","Einrichtung",false,()->
+            startActivity(new Intent(this,SetupActivity.class)),1,2);
+        navBar("Start");
+    }
+
+'''
+        data=data[:old_home_start]+new_home+data[old_home_end:]
+        data=data.replace("private void openMusic() {", """private void openPhone() {
+        try { startActivity(new Intent(Intent.ACTION_DIAL)); }
+        catch (Exception ex) {
+            Toast.makeText(this, "Telefonie benötigt ein kompatibles Bluetooth-HFP-Profil", Toast.LENGTH_LONG).show();
+            openWirelessSetup();
+        }
+    }
+
+    private void openMusic() {""")
+        data=data.replace('} else if ("car".equals(type)) {',
+            """} else if ("phone".equals(type)) {
+                Path q=new Path();q.moveTo(29,21);q.lineTo(40,17);q.lineTo(49,35);
+                q.lineTo(41,43);q.quadTo(51,60,62,63);q.lineTo(70,55);
+                q.lineTo(85,64);q.lineTo(80,81);q.quadTo(66,90,43,73);
+                q.quadTo(14,52,22,32);q.close();canvas.drawPath(q,p);
+            } else if ("wifi".equals(type)) {
+                canvas.drawArc(14,21,86,85,207,126,false,p);
+                canvas.drawArc(28,39,72,83,208,124,false,p);
+                canvas.drawCircle(50,78,4,p);
+            } else if ("car".equals(type)) {""")
+
     (javadir/name).write_text(data)
 (src/"res/drawable-nodpi").mkdir(parents=True,exist_ok=True)
 shutil.copy2(fiesta/"res/drawable-nodpi/fiesta_graphite.png",src/"res/drawable-nodpi/fiesta_graphite.png")
@@ -280,8 +354,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.3.0-unified"')
-g=g.replace('versionCode = 122','versionCode = 103')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.4.0-unified"')
+g=g.replace('versionCode = 122','versionCode = 104')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
