@@ -22,8 +22,8 @@ assert 'getActiveSessions(' in ui and 'getTransportControls()' in ui, "Media ses
 assert 'MediaAccessService' in xml and 'BIND_NOTIFICATION_LISTENER_SERVICE' in xml, "Media permission component missing"
 assert 'LauncherActivity' in xml, "Unified HOME target missing"
 assert 'installFiestaDock()' in aa, "Native AA interface not wired"
-assert 'applyFiestaSplitLayout()' in aa, "Projection touch boundary integration missing"
-assert 'getInt("viewmode",0)' in aa, "Android Auto not full-screen by default"
-assert 'if(split)(w*.73f)' in aa and 'touchOverlayView' in aa, "Touch boundary missing"
+assert 'installFiestaDock()' in aa and 'Zur SYNC-Startseite' in aa, "Compact SYNC home affordance missing"
+assert 'applyFiestaSplitLayout()' not in aa, "Legacy AA split overlay must not intercept touch"
+assert 'showFiestaMedia()' not in aa, "Legacy modal media dialog still installed"
 assert 'MediaAccessService.java' not in xml, "Manifest service name malformed"
 print("Unified SYNC static integrity checks passed")
