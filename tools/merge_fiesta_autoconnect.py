@@ -25,7 +25,7 @@ for name in ("LauncherActivity.java","MainActivity.java"):
         data=data.replace('() -> setting(Settings.ACTION_BLUETOOTH_SETTINGS)', 'this::openWirelessSetup')
         data=data.replace('() -> setting(Settings.ACTION_WIFI_SETTINGS)', 'this::openWirelessSetup')
         data=data.replace('    private void openMusic() {',
-            '    private void openWirelessSetup() { startActivity(new Intent(this, WirelessSetupActivity.class)); }\\n\\n    private void openMusic() {')
+            '    private void openWirelessSetup() { startActivity(new Intent(this, WirelessSetupActivity.class)); }\n\n    private void openMusic() {')
     (javadir/name).write_text(data)
 (src/"res/drawable-nodpi").mkdir(parents=True,exist_ok=True)
 shutil.copy2(fiesta/"res/drawable-nodpi/fiesta_graphite.png",src/"res/drawable-nodpi/fiesta_graphite.png")
