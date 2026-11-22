@@ -466,7 +466,7 @@ dock=r'''
     }
     private fun installFiestaDock() {
         val host=findViewById<FrameLayout>(R.id.container) ?: return
-        fiestaViewMode=getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getInt("viewmode",1)
+        fiestaViewMode=getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getInt("viewmode",0)
         val shell=LinearLayout(this).apply {
             orientation=LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(8,20,33))
