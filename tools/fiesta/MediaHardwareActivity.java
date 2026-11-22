@@ -100,6 +100,10 @@ public final class MediaHardwareActivity extends Activity {
             default:return "Android-Audiogerät "+type;
         }
     }
+    @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
+        super.onRequestPermissionsResult(request,permissions,results);
+        if(request==71)recreate();
+    }
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
         setTitle("SYNC Audio- und Telefonhardware");
@@ -112,6 +116,10 @@ public final class MediaHardwareActivity extends Activity {
         section("Mikrofon / Freisprechen",mic());
         section("Bluetooth / Telefon",bt());
         section("Android Auto", "Der integrierte Empfänger stellt AAC-/PCM-Audio, Mikrofontransport und Video-Decoding bereit. Welche Pfade tatsächlich funktionieren, hängt von Headunit und Smartphone ab.");
+        if(Build.VERSION.SDK_INT>=23 &&
+           checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED)
+            action("Mikrofonberechtigung erteilen",()->
+                    requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},71));
         action("Bluetooth-Einstellungen",()->setting(Settings.ACTION_BLUETOOTH_SETTINGS));
         action("Ton-Einstellungen",()->setting(Settings.ACTION_SOUND_SETTINGS));
         action("Neu prüfen",this::recreate);
