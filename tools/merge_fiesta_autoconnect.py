@@ -384,7 +384,7 @@ serviceText=serviceText.replace(statusAnchor,statusAnchor+'''
             .putBoolean("connected", true)
             .putBoolean("playing", isPlayingFromStatus)
             .apply()''')
-clearAnchor="        lastAaMediaMetadata = null"
+clearAnchor="    private fun clearAaPresentationMetadata() {"
 assert serviceText.count(clearAnchor)==1
 serviceText=serviceText.replace(clearAnchor,clearAnchor+'''
         getSharedPreferences("dynamicos_aa_bridge", MODE_PRIVATE).edit()
