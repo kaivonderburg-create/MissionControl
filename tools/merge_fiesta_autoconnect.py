@@ -415,8 +415,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.7.0-unified"')
-g=g.replace('versionCode = 122','versionCode = 107')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.8.0-unified"')
+g=g.replace('versionCode = 122','versionCode = 108')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
@@ -431,6 +431,54 @@ for folder in ("values","values-de"):
         s=re.sub(r'(<string name="app_name">).*?(</string>)',r'\1dynamicOS Fiesta\2',s)
         s=re.sub(r'(<string name="title">).*?(</string>)',r'\1dynamicOS Fiesta\2',s)
         path.write_text(s)
+
+# Embed native receiver connection status in the Fiesta visual language.
+# Keep the real receiver's pairing controls and protocol engine intact.
+receiverMain=src/"java/com/andrerinas/openheadunit/main/MainActivity.kt"
+receiverText=receiverMain.read_text()
+mainAnchor="        setContentView(R.layout.activity_main)"
+assert receiverText.count(mainAnchor)==1
+receiverText=receiverText.replace(mainAnchor,mainAnchor+"\n        installFiestaConnectionShell()")
+hook="    override fun onCreate(savedInstanceState: Bundle?) {"
+assert receiverText.count(hook)==1
+receiverUi=r'''
+    private fun installFiestaConnectionShell() {
+        val host=findViewById<FrameLayout>(R.id.root) ?: return
+        // Inset the receiver controls rather than covering pairing buttons.
+        val pad=(resources.displayMetrics.density * 52).toInt()
+        findViewById<View>(R.id.main_content)?.setPadding(0,pad,0,0)
+        val top=android.widget.LinearLayout(this).apply {
+            orientation=android.widget.LinearLayout.HORIZONTAL
+            gravity=android.view.Gravity.CENTER_VERTICAL
+            setPadding(12,0,12,0)
+            setBackgroundColor(Color.rgb(9,25,43))
+        }
+        val brand=TextView(this).apply {
+            text="dynamicOS  /  FIESTA"
+            setTextColor(Color.WHITE)
+            textSize=17f
+            typeface=android.graphics.Typeface.DEFAULT_BOLD
+        }
+        top.addView(brand,android.widget.LinearLayout.LayoutParams(0,-2,1f))
+        val back=TextView(this).apply {
+            text="⌂  Fiesta"
+            setTextColor(Color.rgb(108,189,255))
+            textSize=16f
+            setPadding(12,8,12,8)
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity,de.vd3.fiesta.LauncherActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NO_ANIMATION))
+                overridePendingTransition(0,0)
+            }
+        }
+        top.addView(back)
+        host.addView(top,FrameLayout.LayoutParams(-1,pad,android.view.Gravity.TOP))
+        top.bringToFront()
+    }
+
+'''
+receiverText=receiverText.replace(hook,receiverUi+hook)
+receiverMain.write_text(receiverText)
 
 # Install a lightweight Ford-inspired control dock over the projection, keeping the
 # original decoder and transport in the SAME Android application.
