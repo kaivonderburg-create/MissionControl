@@ -1,0 +1,69 @@
+name: Ford Automotive Unified APK
+on:
+  push:
+    branches:
+      - feature/fiesta-media-polish-20261122
+  pull_request:
+    branches:
+      - dynamicOS-fiesta-unified
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get pinned native Android Auto receiver
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone https://github.com/andreknieriem/open-headunit.git receiver
+          git -C receiver checkout --detach ae74788d8312dd7a735775ddc21370f1741a7af1
+      - name: Verify integration script
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m py_compile tools/merge_fiesta_autoconnect.py
+          test -f tools/fiesta/LauncherActivity.java
+          test -f tools/fiesta/FiestaMediaBridge.kt
+          test -f dynamicOS-Fiesta/app/src/main/java/de/vd3/fiesta/MainActivity.java
+      - name: Integrate Fiesta and Android Auto in one APK
+        run: python3 tools/merge_fiesta_autoconnect.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android and native build SDKs
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+      - name: Compile unified APK
+        shell: bash
+        working-directory: receiver
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :app:assembleGithubDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-Ford-Automotive-APK
+          path: receiver/app/build/outputs/apk/github/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve original receiver license
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Receiver-License
+          path: |
+            receiver/LICENSE
+            receiver/COPYRIGHT_MICHAEL_REID_GPLv3AFFERO.txt
+          if-no-files-found: warn
