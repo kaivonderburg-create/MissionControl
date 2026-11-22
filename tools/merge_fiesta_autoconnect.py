@@ -205,6 +205,105 @@ public final class LauncherActivity extends Activity {
     }
     @Override public void onBackPressed(){jump(0);}
 }'''
+
+# The unified build uses this generated launcher, not the standalone APK's
+# launcher. Keep the customer-facing UI and media behavior corrected here.
+launcher=launcher.replace('{"Start","Navigation","Telefon","Medien","Fahrzeug","System"}',
+                          '{"Start","Audio","Telefon","Navigation","System"}')
+launcher=launcher.replace('else if(page==1)navigation();\n        else if(page==2)phone();\n        else if(page==3)music();\n        else if(page==4)vehicle();',
+                          'else if(page==1)music();\n        else if(page==2)phone();\n        else if(page==3)navigation();\n        else if(page==4)vehicle();')
+# Keep sixth page addressable for vehicle maintenance, but out of the primary tab row.
+launcher=launcher.replace('else if(page==4)vehicle();\n        else system();',
+                          'else if(page==4)system();\n        else vehicle();')
+launcher=launcher.replace('()->jump(4)', '()->jump(5)')
+launcher=launcher.replace('()->jump(3)', '()->jump(1)')
+launcher=launcher.replace('()->jump(2)', '()->jump(2)')
+launcher=launcher.replace('add(right,subtitle,5);', 'add(right,subtitle,5);')
+launcher=launcher.replace('Navigation","Android Auto und Karten",this::openReceiver',
+                          'Navigation","Android Auto und Karten",()->jump(3)')
+launcher=launcher.replace('LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.HORIZONTAL);',
+                          'LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.HORIZONTAL);')
+launcher=launcher.replace('LinearLayout auto=card("Android Auto","Vollbild oder Fiesta-Ansicht",this::openReceiver);',
+                          'LinearLayout auto=card("Android Auto","Projektion starten",this::openReceiver);')
+launcher=launcher.replace('TextView brand=text("dynamicOS  |  FIESTA",20,true,WHITE);',
+                          'TextView brand=text("SYNC  |  dynamicOS",20,true,WHITE);')
+launcher=launcher.replace('TextView prompt=text("Guten Tag. Wohin geht die Fahrt?",22,true,WHITE);',
+                          'TextView prompt=text("Ford SYNC",25,true,WHITE);')
+launcher=launcher.replace('TextView subtitle=text("Alles in einem System. Bereit für Navigation, Telefon und Musik.",13,false,MUTED);',
+                          'TextView subtitle=text("Navigation  ·  Audio  ·  Telefon",14,false,MUTED);')
+# One primary media path; use Android MediaSession APIs where notification access
+# is granted, falling back to standard media keys rather than silently doing nothing.
+launcher=launcher.replace('import android.media.AudioManager;',
+                          'import android.media.AudioManager;\nimport android.media.MediaMetadata;\nimport android.media.session.MediaController;\nimport android.media.session.MediaSessionManager;\nimport android.media.session.PlaybackState;\nimport android.content.ComponentName;\nimport java.util.List;')
+start=launcher.index('    private void media(int key){')
+end=launcher.index('    @Override public void onCreate',start)
+launcher=launcher[:start]+'''    private MediaController activeMedia(){
+        try{
+            MediaSessionManager m=(MediaSessionManager)getSystemService(Context.MEDIA_SESSION_SERVICE);
+            if(m==null)return null;
+            List<MediaController> list=m.getActiveSessions(new ComponentName(this,MediaAccessService.class));
+            for(MediaController c:list){
+                PlaybackState p=c.getPlaybackState();
+                if(p!=null && p.getState()==PlaybackState.STATE_PLAYING)return c;
+            }
+            return list.isEmpty()?null:list.get(0);
+        }catch(SecurityException e){return null;}
+    }
+    private void media(int key){
+        MediaController controller=activeMedia();
+        if(controller!=null){
+            MediaController.TransportControls t=controller.getTransportControls();
+            if(key==KeyEvent.KEYCODE_MEDIA_NEXT)t.skipToNext();
+            else if(key==KeyEvent.KEYCODE_MEDIA_PREVIOUS)t.skipToPrevious();
+            else{
+                PlaybackState state=controller.getPlaybackState();
+                if(state!=null && state.getState()==PlaybackState.STATE_PLAYING)t.pause();
+                else t.play();
+            }
+        }else{
+            AudioManager audio=(AudioManager)getSystemService(Context.AUDIO_SERVICE);
+            if(audio!=null){
+                long t=android.os.SystemClock.uptimeMillis();
+                audio.dispatchMediaKeyEvent(new KeyEvent(t,t,KeyEvent.ACTION_DOWN,key,0));
+                audio.dispatchMediaKeyEvent(new KeyEvent(t,t,KeyEvent.ACTION_UP,key,0));
+            }
+        }
+        if(page==1)showPage();
+    }
+''' + launcher[end:]
+start=launcher.index('    private void music(){')
+end=launcher.index('    private void vehicle(){',start)
+launcher=launcher[:start]+'''    private void music(){
+        heading("Audio","Wiedergabe aus der aktiven Medienquelle.");
+        MediaController controller=activeMedia();
+        MediaMetadata meta=controller==null?null:controller.getMetadata();
+        String title=meta==null?null:meta.getString(MediaMetadata.METADATA_KEY_TITLE);
+        String artist=meta==null?null:meta.getString(MediaMetadata.METADATA_KEY_ARTIST);
+        TextView name=text(title==null||title.isEmpty()?"Keine aktive Wiedergabe":title,24,true,WHITE);
+        name.setSingleLine(true);name.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        add(content,name,18);
+        add(content,text(artist==null||artist.isEmpty()?"Musikquelle verbinden":artist,15,false,MUTED),5);
+        LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);
+        for(int i=0;i<3;i++){
+            final int key=i==0?KeyEvent.KEYCODE_MEDIA_PREVIOUS:
+                          i==1?KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:KeyEvent.KEYCODE_MEDIA_NEXT;
+            TextView b=text(i==0?"❮":i==1?"▶ / Ⅱ":"❯",23,true,WHITE);
+            b.setGravity(Gravity.CENTER);b.setBackground(bg(PANEL2,12));
+            b.setOnClickListener(v->media(key));
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(75),1f);
+            lp.leftMargin=dp(8);row.addView(b,lp);
+        }
+        add(content,row,16);
+        if(controller==null)add(content,action("Medienzugriff erlauben","Optional",()->{
+            try{startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));}
+            catch(Exception e){Toast.makeText(this,"Einstellung nicht verfügbar",Toast.LENGTH_SHORT).show();}
+        }),9);
+    }
+''' + launcher[end:]
+# Actual unified build uses one native receiver; ensure NotificationListenerService is in that APK.
+(javadir/"MediaAccessService.java").write_text(
+    (fiesta/"java/de/vd3/fiesta/MediaAccessService.java").read_text())
+
 (javadir/"LauncherActivity.java").write_text(launcher)
 (src/"res/drawable-nodpi").mkdir(parents=True,exist_ok=True)
 shutil.copy2(fiesta/"res/drawable-nodpi/fiesta_graphite.png",src/"res/drawable-nodpi/fiesta_graphite.png")
@@ -322,7 +421,7 @@ public final class SetupActivity extends Activity {
         }else{
             add(body,label("Wähle deine Ansicht.",25,true,FG),0);
             add(body,label("Du kannst jederzeit zwischen beiden Ansichten wechseln.",15,false,MUTED),6);
-            final boolean split=getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getInt("viewmode",1)==1;
+            final boolean split=getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getInt("viewmode",0)==1;
             option("Fiesta + Android Auto","Gemeinsame Ansicht mit eigenem Projektionsbereich.",()->
                 {getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putInt("viewmode",1).apply();render();},split);
             option("Android Auto Vollbild","Projektion nutzt den gesamten Bildschirm.",()->
@@ -467,6 +566,12 @@ addon='''\n        <!-- One installed app: native Fiesta HOME, setup, and Androi
             android:screenOrientation="landscape" />
         <activity android:name="de.vd3.fiesta.WirelessSetupActivity" android:exported="false"
             android:screenOrientation="landscape" />
+        <service android:name="de.vd3.fiesta.MediaAccessService"
+            android:label="dynamicOS Mediensteuerung"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="false">
+            <intent-filter><action android:name="android.service.notification.NotificationListenerService"/></intent-filter>
+        </service>
         <activity android:name="de.vd3.fiesta.MainActivity" android:exported="false"
             android:screenOrientation="landscape" />
 '''
