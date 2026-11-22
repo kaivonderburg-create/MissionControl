@@ -37,6 +37,20 @@ public final class LauncherActivity extends Activity {
             FORE = 0xfff3f5f6, SECONDARY = 0xff9aaebc, ACCENT = 0xff80c4ea, DIVIDER = 0xff30414b;
     private static final String[] TABS = {"Start","Audio","Telefon","Navigation","System"};
     private LinearLayout root, body;
+    private TextView mediaTitleView, mediaArtistView;
+    // Reactive metadata updates avoid timers and expensive full-screen redraws.
+    private final android.content.SharedPreferences.OnSharedPreferenceChangeListener mediaListener=
+        (prefs,key)->{
+            if("title".equals(key)||"artist".equals(key)||"playing".equals(key)){
+                runOnUiThread(this::refreshMediaLabels);
+            }
+        };
+    private void refreshMediaLabels(){
+        if(isFinishing())return;
+        MediaController session=activeMedia();
+        if(mediaTitleView!=null)mediaTitleView.setText(mediaTitle(session));
+        if(mediaArtistView!=null)mediaArtistView.setText(mediaArtist(session));
+    }
     private int page;
     private int dp(float value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
@@ -125,11 +139,21 @@ public final class LauncherActivity extends Activity {
         }
         draw();
     }
-    @Override protected void onResume() { super.onResume(); if(root!=null) draw(); }
+    @Override protected void onResume() {
+        super.onResume();
+        if(root!=null)draw();
+        aaMedia().registerOnSharedPreferenceChangeListener(mediaListener);
+    }
+    @Override protected void onPause() {
+        aaMedia().unregisterOnSharedPreferenceChangeListener(mediaListener);
+        super.onPause();
+    }
     @Override protected void onSaveInstanceState(Bundle b) { b.putInt("page",page); super.onSaveInstanceState(b); }
     @Override public void onBackPressed() { if(page!=0)go(0); else super.onBackPressed(); }
 
     private void draw() {
+        mediaTitleView=null;
+        mediaArtistView=null;
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BACK);
@@ -269,10 +293,13 @@ public final class LauncherActivity extends Activity {
         primary.addView(heading);
         MediaController session=activeMedia();
         TextView track=text(mediaTitle(session),22,true,FORE);
+        mediaTitleView=track;
         LinearLayout.LayoutParams trackLp=new LinearLayout.LayoutParams(-1,0,1f);
         trackLp.topMargin=dp(10);
         primary.addView(track,trackLp);
-        primary.addView(text(mediaArtist(session),13,false,SECONDARY));
+        TextView artistView=text(mediaArtist(session),13,false,SECONDARY);
+        mediaArtistView=artistView;
+        primary.addView(artistView);
         TextView source=text(FiestaMediaBridge.isProjectionActive(this)
             ?"●  ANDROID AUTO VERBUNDEN":"○  SMARTPHONE VERBINDEN",11,true,
             FiestaMediaBridge.isProjectionActive(this)?0xff7cc9b0:SECONDARY);
@@ -334,8 +361,10 @@ public final class LauncherActivity extends Activity {
     private void music(){
         heading("Audio","Medien von Android Auto und installierten Anwendungen");
         MediaController controller=activeMedia();
-        add(body,text(mediaTitle(controller),24,true,FORE),20);
-        add(body,text(mediaArtist(controller),14,false,SECONDARY),6);
+        mediaTitleView=text(mediaTitle(controller),24,true,FORE);
+        mediaArtistView=text(mediaArtist(controller),14,false,SECONDARY);
+        add(body,mediaTitleView,20);
+        add(body,mediaArtistView,6);
         if(controller==null && !FiestaMediaBridge.isProjectionActive(this)){
             add(body,row("Android Auto öffnen","Smartphone verbinden",this::openAuto),22);
         }else{
