@@ -112,4 +112,60 @@ for folder in ("values","values-de"):
         s=re.sub(r'(<string name="app_name">).*?(</string>)',r'\1dynamicOS Fiesta\2',s)
         s=re.sub(r'(<string name="title">).*?(</string>)',r'\1dynamicOS Fiesta\2',s)
         path.write_text(s)
+
+# Install a lightweight Ford-inspired control dock over the projection, keeping the
+# original decoder and transport in the SAME Android application.
+proj=src/"java/com/andrerinas/openheadunit/aap/AapProjectionActivity.kt"
+k=proj.read_text()
+anchor="        setContentView(R.layout.activity_headunit)"
+assert k.count(anchor)==1
+k=k.replace(anchor,anchor+"\n        installFiestaDock()")
+anchor2="    private enum class OverlayState { STARTING, RECONNECTING, HIDDEN }"
+assert k.count(anchor2)==1
+dock=r'''
+    private var fiestaDockVisible = true
+    private fun installFiestaDock() {
+        val host = findViewById<FrameLayout>(R.id.container) ?: return
+        val dock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Color.rgb(7, 24, 45))
+            setPadding(6, 10, 6, 10)
+        }
+        fun addDockAction(symbol: String, action: () -> Unit) {
+            val item = TextView(this).apply {
+                text = symbol
+                textSize = 20f
+                gravity = Gravity.CENTER
+                setTextColor(Color.WHITE)
+                setOnClickListener { action() }
+            }
+            dock.addView(item, LinearLayout.LayoutParams(68, 0, 1f))
+        }
+        addDockAction("⌂") {
+            startActivity(Intent(this, de.vd3.fiesta.LauncherActivity::class.java))
+        }
+        addDockAction("☎") {
+            val i = Intent(Intent.ACTION_DIAL)
+            try { startActivity(i) } catch (_: Exception) {
+                Toast.makeText(this, "Telefonie auf diesem Gerät nicht verfügbar", Toast.LENGTH_SHORT).show()
+            }
+        }
+        addDockAction("♫") {
+            val i = Intent("android.intent.action.MUSIC_PLAYER")
+            try { startActivity(i) } catch (_: Exception) {
+                Toast.makeText(this, "Kein Medienplayer verfügbar", Toast.LENGTH_SHORT).show()
+            }
+        }
+        addDockAction("⛶") {
+            fiestaDockVisible = !fiestaDockVisible
+            dock.alpha = if (fiestaDockVisible) 1f else 0.28f
+            // Projection keeps the same decoder/session; dock merely fades.
+        }
+        host.addView(dock, FrameLayout.LayoutParams(80, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.RIGHT))
+    }
+
+'''
+k=k.replace(anchor2,dock+anchor2)
+proj.write_text(k)
+
 print("Single-APK merge completed; Fiesta and receiver share one applicationId and one APK.")
