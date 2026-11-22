@@ -357,13 +357,13 @@ dock=r'''
 k=k.replace(anchor2,dock+anchor2)
 render_anchor="        container.addView(view)"
 assert k.count(render_anchor)==1
-k=k.replace(render_anchor,render_anchor+"\\n        syncHomeButton?.bringToFront()")
+k=k.replace(render_anchor,render_anchor+"\n        syncHomeButton?.bringToFront()")
 
 # The touch overlay is created AFTER the video surface, so update its
 # dimensions once it is attached; changing only the video did not fix taps.
 touchAttach="        container.addView(overlayView)"
 assert k.count(touchAttach)==1
-k=k.replace(touchAttach,touchAttach+"\\n        syncHomeButton?.bringToFront()")
+k=k.replace(touchAttach,touchAttach+"\n        syncHomeButton?.bringToFront()")
 
 
 proj.write_text(k)
