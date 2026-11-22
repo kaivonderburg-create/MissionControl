@@ -116,7 +116,7 @@ public final class SetupActivity extends Activity {
             add(body,label("Willkommen in deinem Fiesta.",25,true,FG),0);
             add(body,label("Ein System für Navigation, Telefon, Musik und Fahrzeug.",15,false,MUTED),6);
             option("Alles an einem Ort","Die gesamte Bedienung folgt derselben Fiesta-Oberfläche.",null,true);
-            option("Android Auto integriert","Zwischen Vollbild und kombinierter Fiesta-Ansicht umschalten.",null,false);
+            option("Android Auto integriert","Projektion im Vollbild ohne zusätzliche Bedienelemente über der Karte.",null,false);
             button("Später",false,this::finishSetup);button("Einrichten",true,()->next(1));
         }else if(page==1){
             add(body,label("Dein Fahrzeug.",25,true,FG),0);
@@ -131,13 +131,10 @@ public final class SetupActivity extends Activity {
             option("WLAN   ·   "+wifi(),"Verbindung für die kabellose Projektion.",null,false);
             button("Zurück",false,()->next(1));button("Weiter",true,()->next(3));
         }else{
-            add(body,label("Wähle deine Ansicht.",25,true,FG),0);
-            add(body,label("Du kannst jederzeit zwischen beiden Ansichten wechseln.",15,false,MUTED),6);
-            final boolean split=getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getInt("viewmode",0)==1;
-            option("Fiesta + Android Auto","Gemeinsame Ansicht mit eigenem Projektionsbereich.",()->
-                {getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putInt("viewmode",1).apply();render();},split);
-            option("Android Auto Vollbild","Projektion nutzt den gesamten Bildschirm.",()->
-                {getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putInt("viewmode",0).apply();render();},!split);
+            add(body,label("Bereit für die Fahrt.",25,true,FG),0);
+            add(body,label("Android Auto nutzt die vollständige Projektionsfläche.",15,false,MUTED),6);
+            option("SYNC als Startseite","Audio, Navigation, Telefon und Fahrzeug übersichtlich bedienen.",null,true);
+            option("Android Auto im Vollbild","Keine überlagernden Medienfenster und keine zweite Menüleiste.",null,false);
             button("Zurück",false,()->next(2));button("Fiesta starten",true,this::finishSetup);
         }
         setContentView(root);
@@ -234,10 +231,10 @@ public final class WirelessSetupActivity extends Activity {
         catch(Exception ignored){p2p="Nicht zugänglich";}
         row("Bluetooth","Smartphone und Anrufprofile",bt,()->goSettings(Settings.ACTION_BLUETOOTH_SETTINGS));
         row("WLAN / Hotspot","Kabelloser Android-Auto-Datenkanal",wl,()->goSettings(Settings.ACTION_WIFI_SETTINGS));
-        row("Wi-Fi Direct","Empfänger-Funkverbindung",p2p,null);
+        row("Wi-Fi Direct","Empfänger-Funkverbindung",p2p,()->goSettings(Settings.ACTION_WIFI_SETTINGS));
         LinearLayout footer=new LinearLayout(this);footer.setOrientation(LinearLayout.HORIZONTAL);
         TextView receiver=label("Android Auto verbinden  ›",18,0xfff5faff,true);
-        receiver.setGravity(Gravity.CENTER);receiver.setBackground(shape(0xff267fd5));
+        receiver.setGravity(Gravity.CENTER);receiver.setBackground(shape(0xff365770));
         receiver.setOnClickListener(v->startActivity(new Intent(this,
             com.andrerinas.openheadunit.main.MainActivity.class)));
         footer.addView(receiver,new LinearLayout.LayoutParams(0,dp(55),1f));
