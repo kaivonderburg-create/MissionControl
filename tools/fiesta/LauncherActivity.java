@@ -170,6 +170,13 @@ public final class LauncherActivity extends Activity {
         return getSharedPreferences("dynamicos_aa_bridge",MODE_PRIVATE);
     }
     private String mediaTitle(MediaController session){
+        // Android Auto playback is decoded by the receiver, not a local MediaSession.
+        // Prefer the active projection metadata over unrelated local apps.
+        if(FiestaMediaBridge.isProjectionActive(this)){
+            String projected=aaMedia().getString("title","");
+            if(projected!=null&&!projected.trim().isEmpty())return projected.trim();
+            return "Android Auto";
+        }
         if(session!=null && session.getMetadata()!=null){
             String t=session.getMetadata().getString(MediaMetadata.METADATA_KEY_TITLE);
             if(t!=null&&!t.trim().isEmpty())return t;
@@ -178,6 +185,11 @@ public final class LauncherActivity extends Activity {
         return aa==null||aa.isEmpty()?"Android Auto":aa.trim();
     }
     private String mediaArtist(MediaController session){
+        if(FiestaMediaBridge.isProjectionActive(this)){
+            String projected=aaMedia().getString("artist","");
+            return projected==null||projected.trim().isEmpty()
+                ?"Wiedergabe vom Smartphone":projected.trim();
+        }
         if(session!=null && session.getMetadata()!=null){
             String a=session.getMetadata().getString(MediaMetadata.METADATA_KEY_ARTIST);
             if(a!=null&&!a.trim().isEmpty())return a;
@@ -251,6 +263,11 @@ public final class LauncherActivity extends Activity {
         }catch(SecurityException e){return null;}
     }
     private void mediaCommand(int key){
+        // The projected phone has precedence over any stale local media session.
+        if(FiestaMediaBridge.isProjectionActive(this)){
+            if(FiestaMediaBridge.sendMediaKey(this,key))go(1);
+            return;
+        }
         MediaController c=activeMedia();
         if(c==null){
             if(!FiestaMediaBridge.sendMediaKey(this,key))openAuto();
