@@ -13,6 +13,7 @@ javadir.mkdir(parents=True,exist_ok=True)
 # The standalone Java source is authoritative; no generated Java string escaping.
 launcher=Path("tools/fiesta/LauncherActivity.java").read_text(encoding="utf-8")
 (javadir/"LauncherActivity.java").write_text(launcher,encoding="utf-8")
+(javadir/"FiestaMediaBridge.kt").write_text(Path("tools/fiesta/FiestaMediaBridge.kt").read_text(encoding="utf-8"),encoding="utf-8")
 (javadir/"MediaHardwareActivity.java").write_text(Path("tools/fiesta/MediaHardwareActivity.java").read_text(encoding="utf-8"),encoding="utf-8")
 (javadir/"MediaAccessService.java").write_text(
     (fiesta/"java/de/vd3/fiesta/MediaAccessService.java").read_text(encoding="utf-8"), encoding="utf-8")
