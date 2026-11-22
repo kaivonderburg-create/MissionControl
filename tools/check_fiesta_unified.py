@@ -27,6 +27,10 @@ assert 'applyFiestaSplitLayout()' not in aa, "Legacy AA split overlay must not i
 assert 'showFiestaMedia()' not in aa, "Legacy modal media dialog still installed"
 assert 'MediaAccessService.java' not in xml, "Manifest service name malformed"
 assert 'dynamicos_aa_bridge' in ui and 'mediaTitle(' in ui, "Android Auto metadata not surfaced in SYNC"
+assert (root/"java/de/vd3/fiesta/FiestaMediaBridge.kt").is_file(), "AA media transport bridge missing"
+assert 'FiestaMediaBridge.sendMediaKey' in ui, "AA media commands are not routed to phone"
+assert 'this@AapProjectionActivity' in aa, "Incorrect Kotlin context for native return action"
+
 aap_service = (root / "java/com/andrerinas/openheadunit/aap/AapService.kt").read_text()
 assert 'dynamicos_aa_bridge' in aap_service, "Projection media bridge not wired"
 assert 'putString("title"' in aap_service and 'putString("artist"' in aap_service, "AA title/artist bridge missing"
