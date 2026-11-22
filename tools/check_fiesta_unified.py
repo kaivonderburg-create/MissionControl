@@ -40,6 +40,10 @@ aap_service = (root / "java/com/andrerinas/openheadunit/aap/AapService.kt").read
 assert 'dynamicos_aa_bridge' in aap_service, "Projection media bridge not wired"
 assert 'putString("title"' in aap_service and 'putString("artist"' in aap_service, "AA title/artist bridge missing"
 assert 'showFiestaMedia()' not in aa, "Obsolete modal media controls reintroduced"
+assert 'Gravity.RIGHT or Gravity.TOP' in aa, "AA return key obscures bottom media controls"
+assert '(resources.displayMetrics.density*48).toInt()' in aa, "AA return key too large"
+assert 'mediaToggleView' in ui and 'refreshMediaLabels()' in ui, "Reactive media UI missing"
+assert 'registerOnSharedPreferenceChangeListener(mediaListener)' in ui, "Bridge listener missing"
 assert 'installFiestaConnectionShell()' not in (root / "java/com/andrerinas/openheadunit/main/MainActivity.kt").read_text(), "Obsolete receiver overlay reintroduced"
 
 print("Unified SYNC static integrity checks passed")
