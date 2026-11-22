@@ -273,6 +273,12 @@ public final class LauncherActivity extends Activity {
         trackLp.topMargin=dp(10);
         primary.addView(track,trackLp);
         primary.addView(text(mediaArtist(session),13,false,SECONDARY));
+        TextView source=text(FiestaMediaBridge.isProjectionActive(this)
+            ?"●  ANDROID AUTO VERBUNDEN":"○  SMARTPHONE VERBINDEN",11,true,
+            FiestaMediaBridge.isProjectionActive(this)?0xff7cc9b0:SECONDARY);
+        LinearLayout.LayoutParams sourceParams=new LinearLayout.LayoutParams(-1,dp(28));
+        sourceParams.topMargin=dp(7);
+        primary.addView(source,sourceParams);
         LinearLayout commands=new LinearLayout(this);
         LinearLayout.LayoutParams cl=new LinearLayout.LayoutParams(-1,dp(58));
         cl.topMargin=dp(12);
@@ -281,9 +287,9 @@ public final class LauncherActivity extends Activity {
         LinearLayout secondary=new LinearLayout(this);
         secondary.setOrientation(LinearLayout.VERTICAL);
         horizontal.addView(secondary,new LinearLayout.LayoutParams(0,-1,.40f));
-        TextView navigation=control("Navigation",this::openAuto);
-        TextView phone=control("Telefon",()->go(2));
-        TextView vehicle=control("Fahrzeug",()->go(5));
+        View navigation=row("Navigation","Karten und Routen",this::openAuto);
+        View phone=row("Telefon","Anrufe und Verbindung",()->go(2));
+        View vehicle=row("Fahrzeug","Fiesta und CAN-Diagnose",()->go(5));
         secondary.addView(navigation,new LinearLayout.LayoutParams(-1,0,1f));
         LinearLayout.LayoutParams pl=new LinearLayout.LayoutParams(-1,0,1f);pl.topMargin=dp(7);
         secondary.addView(phone,pl);
