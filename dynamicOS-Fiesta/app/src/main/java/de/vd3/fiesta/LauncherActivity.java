@@ -1,6 +1,14 @@
 package de.vd3.fiesta;
 
 import android.app.Activity;
+import android.content.Context;
+import android.media.AudioManager;
+import android.media.MediaMetadata;
+import android.media.session.MediaController;
+import android.media.session.MediaSessionManager;
+import android.media.session.PlaybackState;
+import android.os.SystemClock;
+import android.view.KeyEvent;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.ComponentName;
@@ -18,6 +26,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.GridLayout;
 import android.widget.ImageView;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -181,36 +190,48 @@ public final class LauncherActivity extends Activity {
     }
 
     private void home() {
-        scaffold("Fiesta");
-        LinearLayout content = new LinearLayout(this);
-        content.setPadding(0, dp(13), 0, dp(12));
-        root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
+        scaffold("SYNC");
+        LinearLayout body = new LinearLayout(this);
+        body.setGravity(Gravity.CENTER_VERTICAL);
+        body.setPadding(0,dp(12),0,dp(12));
+        root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
 
-        LinearLayout vehicle = new LinearLayout(this);
-        vehicle.setOrientation(LinearLayout.VERTICAL);
-        vehicle.setGravity(Gravity.CENTER);
-        vehicle.setBackground(shape(0xff0c2735, 0xff1a4056));
-        ImageView car = new ImageView(this);
+        LinearLayout hero = new LinearLayout(this);
+        hero.setGravity(Gravity.CENTER_VERTICAL);
+        hero.setPadding(dp(24),dp(10),dp(24),dp(10));
+        hero.setBackground(shape(0xff102332,0xff253f50));
+        body.addView(hero,new LinearLayout.LayoutParams(-1,0,1));
+
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        TextView headline=label("Willkommen",32,Color.WHITE,true);
+        copy.addView(headline);
+        TextView sub=label("Ford Fiesta  ·  SYNC",17,0xffa7bccb,false);
+        copy.addView(sub);
+        TextView quick=label("Audio   ·   Telefon   ·   Navigation",15,0xffa7bccb,false);
+        LinearLayout.LayoutParams q=new LinearLayout.LayoutParams(-1,-2);q.topMargin=dp(15);
+        copy.addView(quick,q);
+        hero.addView(copy,new LinearLayout.LayoutParams(0,-2,1));
+        ImageView car=new ImageView(this);
         car.setImageResource(R.drawable.fiesta_graphite);
         car.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        vehicle.addView(car, new LinearLayout.LayoutParams(-1, 0, 1));
-        TextView model = label("FORD FIESTA  ·  W-S 107", 20, Color.WHITE, true); model.setGravity(Gravity.CENTER);
-        vehicle.addView(model, new LinearLayout.LayoutParams(-1, dp(35)));
-        TextView year = label("Mk7 Facelift    |    2015    |    Dunkelgrau", 13, 0xff91b2c1, false); year.setGravity(Gravity.CENTER);
-        vehicle.addView(year, new LinearLayout.LayoutParams(-1, dp(28)));
-        LinearLayout.LayoutParams vehicleLp = new LinearLayout.LayoutParams(0, -1, 0.38f);
-        vehicleLp.setMargins(0, 0, dp(10), 0);
-        content.addView(vehicle, vehicleLp);
+        hero.addView(car,new LinearLayout.LayoutParams(dp(235),-1));
 
-        GridLayout grid = new GridLayout(this);
-        grid.setColumnCount(2); grid.setRowCount(2);
-        content.addView(grid, new LinearLayout.LayoutParams(0, -1, 0.62f));
-        addTile(grid, "auto", "Android Auto", true, this::autoConnect, 0, 0);
-        addTile(grid, "music", "Musik", false, this::openMusic, 0, 1);
-        addTile(grid, "car", "Fahrzeug", false, this::vehicleMenu, 1, 0);
-        addTile(grid, "settings", "Einstellungen", false, this::settingsMenu, 1, 1);
-
+        LinearLayout shortcuts=new LinearLayout(this);
+        LinearLayout.LayoutParams sc=new LinearLayout.LayoutParams(-1,dp(98));
+        sc.topMargin=dp(10); body.addView(shortcuts,sc);
+        shortcuts.addView(shortcut("Audio",this::mediaScreen),new LinearLayout.LayoutParams(0,-1,1));
+        shortcuts.addView(shortcut("Telefon",this::phoneScreen),new LinearLayout.LayoutParams(0,-1,1));
+        shortcuts.addView(shortcut("Navigation",this::navigationScreen),new LinearLayout.LayoutParams(0,-1,1));
         navBar("Start");
+    }
+
+    private TextView shortcut(String title,Runnable action) {
+        TextView t=label(title,19,Color.WHITE,true);
+        t.setGravity(Gravity.CENTER);
+        t.setBackground(shape(0xff152939,0xff31495a));
+        t.setOnClickListener(v->action.run());
+        return t;
     }
 
     private void addTile(GridLayout grid, String icon, String name, boolean selected,
@@ -222,17 +243,19 @@ public final class LauncherActivity extends Activity {
     }
 
     private void navBar(String selected) {
-        LinearLayout bar = new LinearLayout(this);
-        bar.setGravity(Gravity.CENTER);
-        bar.setBackground(shape(0xff0b1b2c, 0xff20475a));
-        String[] names={"Start","Fahrzeug","Apps","Einstellungen"};
-        Runnable[] actions={this::home,this::vehicleMenu,this::allApps,this::settingsMenu};
-        for(int i=0;i<names.length;i++) {
-            final int index=i;
-            TextView item=label(names[i],16,names[i].equals(selected)?cyan:0xffd9e9f0,names[i].equals(selected));
-            item.setGravity(Gravity.CENTER);
-            bar.addView(item,new LinearLayout.LayoutParams(0,dp(51),1));
-            item.setOnClickListener(v->actions[index].run());
+        LinearLayout bar=new LinearLayout(this);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        String[] names={"Start","Audio","Telefon","Navigation","System"};
+        Runnable[] actions={this::home,this::mediaScreen,this::phoneScreen,this::navigationScreen,this::settingsMenu};
+        for(int i=0;i<names.length;i++){
+            final int ix=i;
+            TextView t=label(names[i],16,names[i].equals(selected)?cyan:0xffacbdc9,names[i].equals(selected));
+            t.setGravity(Gravity.CENTER);
+            t.setBackgroundColor(names[i].equals(selected)?0xff173344:0xff0b1925);
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(52),1);
+            lp.setMargins(dp(2),0,dp(2),0);
+            bar.addView(t,lp);
+            t.setOnClickListener(v->actions[ix].run());
         }
         root.addView(bar);
     }
@@ -280,7 +303,7 @@ public final class LauncherActivity extends Activity {
             card.setOnClickListener(v -> actions[index].run());
             item.setOnClickListener(v -> actions[index].run());
         }
-        navBar(title);
+        navBar("Einstellungen".equals(title) ? "System" : title);
     }
 
     private void vehicleMenu() {
@@ -320,10 +343,109 @@ public final class LauncherActivity extends Activity {
         Toast.makeText(this, "Kein kompatibler Empfänger installiert", Toast.LENGTH_LONG).show();
     }
 
-    private void openMusic() {
-        Intent intent = new Intent("android.intent.action.MUSIC_PLAYER");
-        try { startActivity(intent); }
-        catch (ActivityNotFoundException e) { allApps(); }
+    private void openMusic() { mediaScreen(); }
+
+    private MediaController currentMediaController() {
+        try {
+            MediaSessionManager manager=(MediaSessionManager)getSystemService(Context.MEDIA_SESSION_SERVICE);
+            if(manager==null)return null;
+            List<MediaController> sessions=manager.getActiveSessions(new ComponentName(this,MediaAccessService.class));
+            for(MediaController c:sessions){
+                PlaybackState state=c.getPlaybackState();
+                if(state!=null && state.getState()==PlaybackState.STATE_PLAYING) return c;
+            }
+            return sessions.isEmpty()?null:sessions.get(0);
+        }catch(SecurityException e){ return null; }
+    }
+
+    private void mediaCommand(int key) {
+        MediaController controller=currentMediaController();
+        if(controller!=null) {
+            MediaController.TransportControls tr=controller.getTransportControls();
+            switch(key) {
+                case KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:
+                    PlaybackState state=controller.getPlaybackState();
+                    if(state!=null && state.getState()==PlaybackState.STATE_PLAYING)tr.pause();
+                    else tr.play();
+                    break;
+                case KeyEvent.KEYCODE_MEDIA_NEXT:tr.skipToNext();break;
+                case KeyEvent.KEYCODE_MEDIA_PREVIOUS:tr.skipToPrevious();break;
+            }
+        }else{
+            AudioManager a=(AudioManager)getSystemService(AUDIO_SERVICE);
+            if(a!=null){
+                long now=SystemClock.uptimeMillis();
+                a.dispatchMediaKeyEvent(new KeyEvent(now,now,KeyEvent.ACTION_DOWN,key,0));
+                a.dispatchMediaKeyEvent(new KeyEvent(now,now,KeyEvent.ACTION_UP,key,0));
+            }
+        }
+        mediaScreen();
+    }
+
+    private void mediaScreen(){
+        scaffold("Audio");
+        LinearLayout content=new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(28),dp(16),dp(28),dp(16));
+        content.setGravity(Gravity.CENTER);
+        root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
+        MediaController controller=currentMediaController();
+        MediaMetadata meta=controller==null?null:controller.getMetadata();
+        String song=meta==null?null:meta.getString(MediaMetadata.METADATA_KEY_TITLE);
+        String artist=meta==null?null:meta.getString(MediaMetadata.METADATA_KEY_ARTIST);
+        TextView title=label(song==null||song.isEmpty()?"Keine aktive Wiedergabe":song,27,Color.WHITE,true);
+        title.setGravity(Gravity.CENTER);
+        title.setSingleLine(true);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        content.addView(title,new LinearLayout.LayoutParams(-1,dp(55)));
+        TextView detail=label(artist==null||artist.isEmpty()?"Medienquelle auswählen":artist,16,0xffa9bfcc,false);
+        detail.setGravity(Gravity.CENTER);
+        content.addView(detail,new LinearLayout.LayoutParams(-1,dp(34)));
+        LinearLayout controls=new LinearLayout(this);
+        controls.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams cl=new LinearLayout.LayoutParams(-1,dp(88));cl.topMargin=dp(15);
+        content.addView(controls,cl);
+        mediaButton(controls,"|◀",()->mediaCommand(KeyEvent.KEYCODE_MEDIA_PREVIOUS));
+        mediaButton(controls,"▶ / ❚❚",()->mediaCommand(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE));
+        mediaButton(controls,"▶|",()->mediaCommand(KeyEvent.KEYCODE_MEDIA_NEXT));
+        LinearLayout extras=new LinearLayout(this);
+        LinearLayout.LayoutParams el=new LinearLayout.LayoutParams(-1,dp(57));el.topMargin=dp(13);
+        content.addView(extras,el);
+        TextView sources=shortcut("Quellen / Apps",this::allApps);
+        extras.addView(sources,new LinearLayout.LayoutParams(0,-1,1));
+        TextView refresh=shortcut("Aktualisieren",this::mediaScreen);
+        extras.addView(refresh,new LinearLayout.LayoutParams(0,-1,1));
+        if(controller==null){
+            TextView access=label("Medienzugriff erlauben",14,cyan,false);
+            access.setGravity(Gravity.CENTER);
+            content.addView(access,new LinearLayout.LayoutParams(-1,dp(44)));
+            access.setOnClickListener(v->setting("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));
+        }
+        navBar("Audio");
+    }
+
+    private void mediaButton(LinearLayout parent,String text,Runnable action){
+        TextView b=label(text,25,Color.WHITE,true);
+        b.setGravity(Gravity.CENTER);
+        b.setBackground(shape(0xff183447,0xff365669));
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);lp.setMargins(dp(5),0,dp(5),0);
+        parent.addView(b,lp);
+        b.setOnClickListener(v->action.run());
+    }
+
+    private void phoneScreen(){
+        menu("Telefon",new String[][]{{"☎","Bluetooth verbinden"},{"◉","Telefon-App öffnen"}},new Runnable[]{
+            ()->setting(Settings.ACTION_BLUETOOTH_SETTINGS),
+            ()->{Intent i=new Intent(Intent.ACTION_DIAL);try{startActivity(i);}catch(Exception e){allApps();}}
+        });
+    }
+
+    private void navigationScreen(){
+        menu("Navigation",new String[][]{{"↗","Navigation starten"},{"◉","Android Auto"}},new Runnable[]{
+            ()->{Intent i=new Intent("android.intent.action.VIEW",android.net.Uri.parse("geo:0,0?q="));
+                try{startActivity(i);}catch(Exception e){allApps();}},
+            this::autoConnect
+        });
     }
 
     private void openControls() { startActivity(new Intent(this, MainActivity.class)); }
