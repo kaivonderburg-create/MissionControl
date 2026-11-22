@@ -203,7 +203,7 @@ public final class LauncherActivity extends Activity {
             if(t!=null&&!t.trim().isEmpty())return t;
         }
         String aa=aaMedia().getString("title","");
-        return aa==null||aa.isEmpty()?"Android Auto":aa.trim();
+        return aa==null||aa.isEmpty()?"Musik & Medien":aa.trim();
     }
     private String mediaArtist(MediaController session){
         if(FiestaMediaBridge.isProjectionActive(this)){
@@ -216,7 +216,7 @@ public final class LauncherActivity extends Activity {
             if(a!=null&&!a.trim().isEmpty())return a;
         }
         String aa=aaMedia().getString("artist","");
-        return aa==null||aa.isEmpty()?"Medien und Navigation auf deinem Smartphone":aa;
+        return aa==null||aa.isEmpty()?"Android Auto verbinden oder lokale Medien wählen":aa;
     }
     private void playbackButtons(LinearLayout target,MediaController session){
         if(session==null && !FiestaMediaBridge.isProjectionActive(this)){
@@ -286,13 +286,13 @@ public final class LauncherActivity extends Activity {
     private void mediaCommand(int key){
         // The projected phone has precedence over any stale local media session.
         if(FiestaMediaBridge.isProjectionActive(this)){
-            if(FiestaMediaBridge.sendMediaKey(this,key))go(1);
+            if(FiestaMediaBridge.sendMediaKey(this,key))draw();
             return;
         }
         MediaController c=activeMedia();
         if(c==null){
             if(!FiestaMediaBridge.sendMediaKey(this,key))openAuto();
-            else go(1);
+            else draw();
             return;
         }
         MediaController.TransportControls t=c.getTransportControls();
@@ -303,7 +303,7 @@ public final class LauncherActivity extends Activity {
             if(state!=null && state.getState()==PlaybackState.STATE_PLAYING)t.pause();
             else t.play();
         }
-        go(1);
+        draw();
     }
     private void music(){
         heading("Audio","Medien von Android Auto und installierten Anwendungen");
