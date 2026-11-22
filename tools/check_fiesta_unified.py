@@ -26,4 +26,11 @@ assert 'installFiestaDock()' in aa and 'Zur SYNC-Startseite' in aa, "Compact SYN
 assert 'applyFiestaSplitLayout()' not in aa, "Legacy AA split overlay must not intercept touch"
 assert 'showFiestaMedia()' not in aa, "Legacy modal media dialog still installed"
 assert 'MediaAccessService.java' not in xml, "Manifest service name malformed"
+assert 'dynamicos_aa_bridge' in ui and 'mediaTitle(' in ui, "Android Auto metadata not surfaced in SYNC"
+aap_service = (root / "java/com/andrerinas/openheadunit/aap/AapService.kt").read_text()
+assert 'dynamicos_aa_bridge' in aap_service, "Projection media bridge not wired"
+assert 'putString("title"' in aap_service and 'putString("artist"' in aap_service, "AA title/artist bridge missing"
+assert 'showFiestaMedia()' not in aa, "Obsolete modal media controls reintroduced"
+assert 'installFiestaConnectionShell()' not in (root / "java/com/andrerinas/openheadunit/main/MainActivity.kt").read_text(), "Obsolete receiver overlay reintroduced"
+
 print("Unified SYNC static integrity checks passed")
