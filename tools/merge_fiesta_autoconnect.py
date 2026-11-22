@@ -497,7 +497,7 @@ receiverUi=r'''
             }
         info.addView(caption("ANDROID AUTO",12f,Color.rgb(89,184,255),true))
         info.addView(caption("Smartphone verbinden",26f,Color.WHITE,true))
-        info.addView(caption("Kabellos verbunden. Direkt in deinem Fiesta.",15f,
+        info.addView(caption("Android Auto kabellos und direkt im Fiesta nutzen.",15f,
             Color.rgb(171,196,218)))
         val connect=TextView(this).apply {
             text="Verbinden   ›"
@@ -537,27 +537,13 @@ receiverUi=r'''
             orientation=android.widget.LinearLayout.HORIZONTAL
             gravity=android.view.Gravity.CENTER_VERTICAL
         }
-        val chips=listOf("FI E S T A".replace(" ",""),"Navigation","Telefon","Medien","Fahrzeug")
-        chips.forEachIndexed { index, name ->
-            bottom.addView(TextView(this).apply {
-                text=name
-                textSize=14f
-                setTextColor(if(index==0)Color.rgb(105,196,255) else Color.WHITE)
-                gravity=android.view.Gravity.CENTER
-                setPadding(dp(8),0,dp(8),0)
-                setOnClickListener {
-                    if(index==0||index==4) {
-                        startActivity(Intent(this@MainActivity,de.vd3.fiesta.LauncherActivity::class.java)
-                            .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NO_ANIMATION))
-                        overridePendingTransition(0,0)
-                    } else {
-                        Toast.makeText(this@MainActivity,
-                            "Funktion über Android Auto nach der Verbindung verfügbar",
-                            Toast.LENGTH_SHORT).show()
-                    }
-                }
-            },android.widget.LinearLayout.LayoutParams(0,dp(48),1f))
+        val status=TextView(this).apply {
+            text="FIESTA UNIFIED     •     Telefon     •     Navigation     •     Medien"
+            textSize=13f
+            setTextColor(Color.rgb(168,195,215))
+            gravity=android.view.Gravity.CENTER_VERTICAL
         }
+        bottom.addView(status,android.widget.LinearLayout.LayoutParams(-1,dp(48)))
         dashboard.addView(bottom)
         val anchor=findViewById<View>(R.id.main_content)
         val place=if(anchor!=null)host.indexOfChild(anchor)+1 else host.childCount
