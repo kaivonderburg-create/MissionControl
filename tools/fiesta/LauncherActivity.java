@@ -157,6 +157,46 @@ public final class LauncherActivity extends Activity {
     }
 
     /** SYNC dashboard: glanceable source, primary controls and persistent navigation. */
+    // Android Auto music comes from the phone's projection protocol, not from
+    // the headunit's notification service. This compact snapshot is written
+    // directly by the receiver and survives switching to the SYNC home screen.
+    private android.content.SharedPreferences aaMedia(){
+        return getSharedPreferences("dynamicos_aa_bridge",MODE_PRIVATE);
+    }
+    private String mediaTitle(MediaController session){
+        if(session!=null && session.getMetadata()!=null){
+            String t=session.getMetadata().getString(MediaMetadata.METADATA_KEY_TITLE);
+            if(t!=null&&!t.trim().isEmpty())return t;
+        }
+        String aa=aaMedia().getString("title","");
+        return aa==null||aa.isEmpty()?"Android Auto":aa.trim();
+    }
+    private String mediaArtist(MediaController session){
+        if(session!=null && session.getMetadata()!=null){
+            String a=session.getMetadata().getString(MediaMetadata.METADATA_KEY_ARTIST);
+            if(a!=null&&!a.trim().isEmpty())return a;
+        }
+        String aa=aaMedia().getString("artist","");
+        return aa==null||aa.isEmpty()?"Medien und Navigation auf deinem Smartphone":aa;
+    }
+    private void playbackButtons(LinearLayout target,MediaController session){
+        if(session==null){
+            // Do not show non-working skips when the phone session is not exposed
+            // to Android's local MediaSessionManager.
+            target.addView(control("ANDROID AUTO ÖFFNEN",this::openAuto),
+                new LinearLayout.LayoutParams(-1,dp(54)));
+            return;
+        }
+        final int[] keys={KeyEvent.KEYCODE_MEDIA_PREVIOUS,KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,KeyEvent.KEYCODE_MEDIA_NEXT};
+        final String[] labels={"❮","▶  /  Ⅱ","❯"};
+        for(int i=0;i<keys.length;i++){
+            final int key=keys[i];
+            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);
+            p.leftMargin=dp(3);p.rightMargin=dp(3);
+            target.addView(control(labels[i],()->mediaCommand(key)),p);
+        }
+    }
+
     private void home(){
         LinearLayout horizontal=new LinearLayout(this);
         horizontal.setGravity(Gravity.CENTER_VERTICAL);
@@ -171,25 +211,16 @@ public final class LauncherActivity extends Activity {
         TextView heading=text("JETZT WIEDERGEBEN",12,true,ACCENT);
         primary.addView(heading);
         MediaController session=activeMedia();
-        MediaMetadata metadata=session==null?null:session.getMetadata();
-        String song=metadata==null?null:metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
-        String artist=metadata==null?null:metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
-        TextView track=text(song==null||song.isEmpty()?"Medien bereit":song,22,true,FORE);
+        TextView track=text(mediaTitle(session),22,true,FORE);
         LinearLayout.LayoutParams trackLp=new LinearLayout.LayoutParams(-1,0,1f);
         trackLp.topMargin=dp(10);
         primary.addView(track,trackLp);
-        primary.addView(text(artist==null||artist.isEmpty()?"Verbinde dein Smartphone für Musik und Navigation":artist,13,false,SECONDARY));
+        primary.addView(text(mediaArtist(session),13,false,SECONDARY));
         LinearLayout commands=new LinearLayout(this);
-        LinearLayout.LayoutParams cl=new LinearLayout.LayoutParams(-1,dp(58));cl.topMargin=dp(12);
+        LinearLayout.LayoutParams cl=new LinearLayout.LayoutParams(-1,dp(58));
+        cl.topMargin=dp(12);
         primary.addView(commands,cl);
-        final int[] keys={KeyEvent.KEYCODE_MEDIA_PREVIOUS,KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,KeyEvent.KEYCODE_MEDIA_NEXT};
-        final String[] labels={"❮","▶  /  Ⅱ","❯"};
-        for(int i=0;i<3;i++){
-            final int key=keys[i];
-            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);
-            lp.leftMargin=dp(3);lp.rightMargin=dp(3);
-            commands.addView(control(labels[i],()->mediaCommand(key)),lp);
-        }
+        playbackButtons(commands,session);
         LinearLayout secondary=new LinearLayout(this);
         secondary.setOrientation(LinearLayout.VERTICAL);
         horizontal.addView(secondary,new LinearLayout.LayoutParams(0,-1,.40f));
@@ -217,58 +248,44 @@ public final class LauncherActivity extends Activity {
     }
     private void mediaCommand(int key){
         MediaController c=activeMedia();
-        if(c!=null){
-            MediaController.TransportControls t=c.getTransportControls();
-            if(key==KeyEvent.KEYCODE_MEDIA_NEXT)t.skipToNext();
-            else if(key==KeyEvent.KEYCODE_MEDIA_PREVIOUS)t.skipToPrevious();
-            else {
-                PlaybackState s=c.getPlaybackState();
-                if(s!=null && s.getState()==PlaybackState.STATE_PLAYING)t.pause();
-                else t.play();
-            }
-        }else{
-            AudioManager a=(AudioManager)getSystemService(AUDIO_SERVICE);
-            if(a!=null){
-                long now=SystemClock.uptimeMillis();
-                a.dispatchMediaKeyEvent(new KeyEvent(now,now,KeyEvent.ACTION_DOWN,key,0));
-                a.dispatchMediaKeyEvent(new KeyEvent(now,now,KeyEvent.ACTION_UP,key,0));
-            }
+        if(c==null){
+            openAuto();
+            return;
+        }
+        MediaController.TransportControls t=c.getTransportControls();
+        if(key==KeyEvent.KEYCODE_MEDIA_NEXT)t.skipToNext();
+        else if(key==KeyEvent.KEYCODE_MEDIA_PREVIOUS)t.skipToPrevious();
+        else {
+            PlaybackState state=c.getPlaybackState();
+            if(state!=null && state.getState()==PlaybackState.STATE_PLAYING)t.pause();
+            else t.play();
         }
         go(1);
     }
     private void music(){
-        heading("Audio","Musik und verfügbare Audioquellen");
+        heading("Audio","Medien von Android Auto und installierten Anwendungen");
         MediaController controller=activeMedia();
-        MediaMetadata metadata=controller==null?null:controller.getMetadata();
-        String song=metadata==null?null:metadata.getString(MediaMetadata.METADATA_KEY_TITLE);
-        String artist=metadata==null?null:metadata.getString(MediaMetadata.METADATA_KEY_ARTIST);
-        TextView title=text(song==null||song.isEmpty()?"Keine aktive Wiedergabe":song,25,true,FORE);
-        add(body,title,20);
-        add(body,text(artist==null||artist.isEmpty()?"Quelle auswählen oder Smartphone verbinden":artist,15,false,SECONDARY),5);
-        LinearLayout controls=new LinearLayout(this);
-        LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(-1,dp(84));
-        layout.topMargin=dp(16); body.addView(controls,layout);
-        int[] keys={KeyEvent.KEYCODE_MEDIA_PREVIOUS,KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,KeyEvent.KEYCODE_MEDIA_NEXT};
-        String[] labels={"❮","▶  /  Ⅱ","❯"};
-        for(int i=0;i<3;i++){
-            final int key=keys[i];
-            LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);
-            p.leftMargin=dp(5); p.rightMargin=dp(5);
-            controls.addView(control(labels[i],()->mediaCommand(key)),p);
+        add(body,text(mediaTitle(controller),24,true,FORE),20);
+        add(body,text(mediaArtist(controller),14,false,SECONDARY),6);
+        if(controller==null){
+            add(body,row("Android Auto öffnen","Aktive Smartphone-Wiedergabe",this::openAuto),22);
+        }else{
+            LinearLayout controls=new LinearLayout(this);
+            LinearLayout.LayoutParams layout=new LinearLayout.LayoutParams(-1,dp(67));
+            layout.topMargin=dp(17);
+            body.addView(controls,layout);
+            playbackButtons(controls,controller);
+            add(body,row("Android Auto öffnen","Smartphone-Wiedergabe",this::openAuto),12);
         }
-        add(body,row("Android Auto","Smartphone-Audio",this::openAuto),12);
-        if(controller==null) add(body,row("Medienzugriff aktivieren","Metadaten anderer Apps",()->
-                openSetting("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")),7);
+        add(body,row("Audio- und Mikrofoneinstellungen","Headunit prüfen",()->
+            open(MediaHardwareActivity.class)),10);
     }
     private void phone(){
-        heading("Telefon","Smartphone koppeln und Telefonfunktionen öffnen");
-        add(body,row("Bluetooth verbinden","Kopplung",()->open(WirelessSetupActivity.class)),16);
-        add(body,row("Telefonhardware prüfen","Mikrofon und Freisprechen",()->open(MediaHardwareActivity.class)),8);
-        add(body,row("Telefon über Android Auto","Anrufe und Kontakte",this::openAuto),10);
-        add(body,row("System-Telefon","Nur wenn vom Gerät unterstützt",()->{
-            try{startActivity(new Intent(Intent.ACTION_DIAL));}
-            catch(Exception e){Toast.makeText(this,"Kein Telefonmodul vorhanden",Toast.LENGTH_SHORT).show();}
-        }),10);
+        heading("Telefon","Anrufe über Smartphone und Android Auto");
+        add(body,row("Telefon in Android Auto","Anrufe, Kontakte und Verlauf",this::openAuto),19);
+        add(body,row("Bluetooth-Verbindung","Smartphone koppeln",()->open(WirelessSetupActivity.class)),10);
+        add(body,row("Freisprechhardware","Mikrofon und Audioausgänge prüfen",()->
+            open(MediaHardwareActivity.class)),10);
     }
     private void navigation(){
         heading("Navigation","Smartphone-Navigation über Android Auto");
