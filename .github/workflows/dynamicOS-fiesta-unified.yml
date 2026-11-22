@@ -1,0 +1,47 @@
+name: Build unified dynamicOS Fiesta + AutoConnect APK
+on:
+  push:
+    branches: [dynamicOS-fiesta-unified]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unified-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get pinned native Android Auto receiver source
+        run: |
+          git clone https://github.com/andreknieriem/open-headunit.git receiver
+          git -C receiver checkout --detach ae74788d8312dd7a735775ddc21370f1741a7af1
+      - name: Integrate Fiesta into receiver source (one application)
+        run: python3 tools/merge_fiesta_autoconnect.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v4
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install Android and native build SDKs
+        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
+      - name: Assemble one debug APK
+        working-directory: receiver
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleGithubDebug --no-daemon --stacktrace
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-Fiesta-AutoConnect-UNIFIED-APK
+          path: receiver/app/build/outputs/apk/github/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish native receiver license
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Receiver-Copyright-and-License
+          path: |
+            receiver/LICENSE
+            receiver/COPYRIGHT_MICHAEL_REID_GPLv3AFFERO.txt
+          if-no-files-found: warn
