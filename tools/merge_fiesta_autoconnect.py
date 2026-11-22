@@ -419,70 +419,105 @@ public final class SetupActivity extends Activity {
 wireless=r'''package de.vd3.fiesta;
 import android.app.Activity;
 import android.os.Bundle;
-import android.os.Build;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothAdapter;
 import android.net.wifi.WifiManager;
 import android.net.wifi.p2p.WifiP2pManager;
 import android.provider.Settings;
-import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
 import android.widget.TextView;
-import android.widget.Button;
+import android.widget.Toast;
 
+/** Built-in wireless control screen; no WebView or second launcher. */
 public final class WirelessSetupActivity extends Activity {
-    private LinearLayout body;
-    private TextView status;
-    private void action(String caption, Runnable run) {
-        Button b = new Button(this); b.setAllCaps(false); b.setText(caption);
-        b.setOnClickListener(v -> run.run()); body.addView(b);
+    private LinearLayout list;
+    private TextView state;
+    private int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
+    private GradientDrawable shape(int color) {
+        GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(12));return d;
     }
-    private void settings(String name) {
-        try { startActivity(new Intent(name)); }
-        catch (Exception e) { status.setText("Firmware stellt diese Systemeinstellung nicht bereit."); }
+    private TextView label(String s,int size,int color,boolean bold){
+        TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);
+        t.setGravity(Gravity.CENTER_VERTICAL);
+        if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        return t;
     }
-    @Override public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        ScrollView scroll = new ScrollView(this);
-        body = new LinearLayout(this); body.setOrientation(LinearLayout.VERTICAL);
-        body.setPadding(24,16,24,16); body.setBackgroundColor(Color.rgb(7,20,38));
-        TextView heading = new TextView(this); heading.setText("dynamicOS Fiesta\nWireless Android Auto");
-        heading.setTextColor(Color.WHITE); heading.setTextSize(25); body.addView(heading);
-        status = new TextView(this); status.setTextColor(0xffc6deee); status.setTextSize(16);
-        status.setPadding(0,12,0,12); body.addView(status);
-        action("Funkmodule prüfen", this::updateStatus);
-        action("Smartphone mit Headunit-Bluetooth koppeln", () -> settings(Settings.ACTION_BLUETOOTH_SETTINGS));
-        action("WLAN / Hotspot der Headunit konfigurieren", () -> settings(Settings.ACTION_WIFI_SETTINGS));
-        action("Android-Auto-Funkmodus und Hersteller-Adapter konfigurieren", () ->
-            startActivity(new Intent(this, com.andrerinas.openheadunit.main.SettingsActivity.class)));
-        action("Android Auto aktivieren", () ->
-            startActivity(new Intent(this, com.andrerinas.openheadunit.main.MainActivity.class)));
-        action("Zum Fiesta-Launcher", this::finish);
-        TextView note=new TextView(this);
-        note.setText("Die integrierte Empfänger-Engine nutzt Android-Wi-Fi-Direct oder den vorhandenen Hotspot sowie den Bluetooth-RFCOMM-Handshake. Bei QS9008-Radios mit separatem OEM-Bluetooth-Modul kann die Kopplung nur funktionieren, wenn der passende Herstellertransport unterstützt wird. Diese Diagnose bestätigt keine HFP- oder AA-Verbindung.");
-        note.setTextColor(0xffa4bfce); note.setTextSize(13); note.setPadding(0,12,0,0);
-        body.addView(note); scroll.addView(body); setContentView(scroll);
-        updateStatus();
+    private void row(String title,String desc,String status,Runnable action) {
+        LinearLayout line=new LinearLayout(this);line.setOrientation(LinearLayout.HORIZONTAL);
+        line.setGravity(Gravity.CENTER_VERTICAL);line.setPadding(dp(15),dp(8),dp(14),dp(8));
+        line.setBackground(shape(0xff152e46));
+        LinearLayout info=new LinearLayout(this);info.setOrientation(LinearLayout.VERTICAL);
+        info.addView(label(title,18,0xfff4faff,true));
+        info.addView(label(desc,13,0xffadc5d8,false));
+        line.addView(info,new LinearLayout.LayoutParams(0,-2,1f));
+        TextView badge=label(status,13,0xff7bdfb3,true);
+        badge.setGravity(Gravity.CENTER);
+        line.addView(badge,new LinearLayout.LayoutParams(dp(170),dp(48)));
+        if(action!=null)line.setOnClickListener(v->action.run());
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,0,1f);
+        lp.bottomMargin=dp(9);list.addView(line,lp);
     }
-    private void updateStatus() {
-        BluetoothManager bm=(BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
-        BluetoothAdapter adapter=bm==null?null:bm.getAdapter();
-        WifiManager wifi=(WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        WifiP2pManager p2p=(WifiP2pManager)getSystemService(Context.WIFI_P2P_SERVICE);
-        String bt=adapter==null?"Kein Android-Bluetooth-Adapter":(adapter.isEnabled()?"Eingeschaltet":"Ausgeschaltet");
-        String wl=wifi==null?"Kein Android-WLAN-Manager":(wifi.isWifiEnabled()?"Eingeschaltet":"Ausgeschaltet");
-        String p2pState=p2p==null?"Nicht verfügbar":"Manager vorhanden (Funktion nicht verifiziert)";
-        status.setText("Native Headunit-Schnittstellen:\nBluetooth: "+bt+"\nWLAN: "+wl+"\nWi-Fi Direct: "+p2pState+
-            "\n\nFunkmodul-Zugriff erfolgt über Android-Systemdienste; Herstellerfunktionen können zusätzliche Berechtigungen erfordern.");
+    private void goSettings(String what){
+        try{startActivity(new Intent(what));}
+        catch(Exception e){Toast.makeText(this,"Systemfunktion nicht verfügbar",Toast.LENGTH_LONG).show();}
     }
-    @Override protected void onResume() { super.onResume(); if(status!=null)updateStatus(); }
+    @Override public void onCreate(Bundle saved){
+        super.onCreate(saved);
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        render();
+    }
+    private void render(){
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(0xff081421);root.setPadding(dp(20),dp(12),dp(20),dp(12));
+        LinearLayout head=new LinearLayout(this);head.setOrientation(LinearLayout.HORIZONTAL);
+        TextView title=label("dynamicOS   |   Verbindung",21,0xfff5faff,true);
+        head.addView(title,new LinearLayout.LayoutParams(0,dp(55),1f));
+        TextView back=label("‹  Fiesta",16,0xff70bdff,true);
+        back.setGravity(Gravity.CENTER);back.setOnClickListener(v->finish());
+        head.addView(back,new LinearLayout.LayoutParams(dp(125),dp(55)));
+        root.addView(head);
+        root.addView(label("Smartphone und Funkverbindung",24,0xfff5faff,true));
+        root.addView(label("Die Verbindungsarten sind im gemeinsamen Fiesta-System verfügbar.",14,0xffb7c9d8,false));
+        list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,0,1f);lp.topMargin=dp(18);
+        root.addView(list,lp);
+        String bt="Nicht erkannt",wl="Nicht erkannt",p2p="Nicht erkannt";
+        try{
+            BluetoothManager bm=(BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
+            BluetoothAdapter adapter=bm==null?null:bm.getAdapter();
+            bt=adapter==null?"OEM-Modul":adapter.isEnabled()?"Aktiv":"Aus";
+        }catch(Exception ex){bt="OEM-Modul";}
+        try{
+            WifiManager wm=(WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            wl=wm==null?"Nicht erkannt":wm.isWifiEnabled()?"Aktiv":"Aus";
+        }catch(Exception ex){wl="Nicht zugänglich";}
+        try{p2p=getSystemService(Context.WIFI_P2P_SERVICE)!=null?"Verfügbar":"Nicht verfügbar";}
+        catch(Exception ignored){p2p="Nicht zugänglich";}
+        row("Bluetooth","Smartphone und Anrufprofile",bt,()->goSettings(Settings.ACTION_BLUETOOTH_SETTINGS));
+        row("WLAN / Hotspot","Kabelloser Android-Auto-Datenkanal",wl,()->goSettings(Settings.ACTION_WIFI_SETTINGS));
+        row("Wi-Fi Direct","Empfänger-Funkverbindung",p2p,null);
+        LinearLayout footer=new LinearLayout(this);footer.setOrientation(LinearLayout.HORIZONTAL);
+        TextView receiver=label("Android Auto verbinden  ›",18,0xfff5faff,true);
+        receiver.setGravity(Gravity.CENTER);receiver.setBackground(shape(0xff267fd5));
+        receiver.setOnClickListener(v->startActivity(new Intent(this,
+            com.andrerinas.openheadunit.main.MainActivity.class)));
+        footer.addView(receiver,new LinearLayout.LayoutParams(0,dp(55),1f));
+        TextView configure=label("Erweitert",15,0xfff5faff,true);
+        configure.setGravity(Gravity.CENTER);configure.setOnClickListener(v->
+            startActivity(new Intent(this,com.andrerinas.openheadunit.main.SettingsActivity.class)));
+        footer.addView(configure,new LinearLayout.LayoutParams(dp(140),dp(55)));
+        root.addView(footer);setContentView(root);
+    }
+    @Override protected void onResume(){super.onResume();if(list!=null)render();}
 }
-''';
+'''
 (javadir/"WirelessSetupActivity.java").write_text(wireless)
 
 manifest=src/"AndroidManifest.xml"
