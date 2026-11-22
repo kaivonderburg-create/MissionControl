@@ -30,42 +30,148 @@ for name in ("LauncherActivity.java","MainActivity.java"):
 (src/"res/drawable-nodpi").mkdir(parents=True,exist_ok=True)
 shutil.copy2(fiesta/"res/drawable-nodpi/fiesta_graphite.png",src/"res/drawable-nodpi/fiesta_graphite.png")
 
-setup='''package de.vd3.fiesta;
+setup=r'''package de.vd3.fiesta;
 import android.app.Activity;
 import android.os.Bundle;
 import android.content.Intent;
-import android.provider.Settings;
+import android.content.Context;
 import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
+import android.net.wifi.WifiManager;
+import android.net.wifi.p2p.WifiP2pManager;
+import android.provider.Settings;
+
+/** Lean four-stage, TV-style touch onboarding, entirely inside the unified APK. */
 public final class SetupActivity extends Activity {
-  private LinearLayout layout;
-  private void button(String title, Runnable action) {
-    Button b=new Button(this); b.setAllCaps(false); b.setText(title);
-    layout.addView(b,new LinearLayout.LayoutParams(-1,-2)); b.setOnClickListener(v->action.run());
+  private static final int BG=0xff071326, PANEL=0xff102740, BLUE=0xff177fe9;
+  private static final int WHITE=0xfff7fbff, MUTED=0xff9fb8cf;
+  private int page=0;
+  private LinearLayout root,body,footer;
+  private int dp(float n){return (int)(getResources().getDisplayMetrics().density*n+0.5f);}
+  private GradientDrawable shape(int color,int stroke) {
+    GradientDrawable d=new GradientDrawable();
+    d.setColor(color);d.setCornerRadius(dp(15));
+    if(stroke!=0)d.setStroke(dp(1),stroke);
+    return d;
   }
-  @Override public void onCreate(Bundle b) {
-    super.onCreate(b);
-    layout=new LinearLayout(this);layout.setOrientation(LinearLayout.VERTICAL);
-    layout.setPadding(32,20,32,20);layout.setGravity(Gravity.CENTER_VERTICAL);
-    layout.setBackgroundColor(Color.rgb(7,15,27));
-    TextView title=new TextView(this);title.setText("dynamicOS  /  FIESTA\\nErsteinrichtung");
-    title.setTextSize(27);title.setTextColor(Color.WHITE);layout.addView(title);
-    TextView info=new TextView(this);
-    info.setText("Einmalige Einrichtung für Bluetooth, WLAN und den integrierten Android-Auto-Empfänger. Die benötigten Funkberechtigungen müssen vom Gerät gewährt werden.");
-    info.setTextSize(16); info.setTextColor(0xffaec5d4);info.setPadding(0,18,0,20);
-    layout.addView(info);
-    button("1  Native Funkverbindung einrichten",()->startActivity(new Intent(this,WirelessSetupActivity.class)));
-    button("2  WLAN und Bluetooth prüfen",()->startActivity(new Intent(this,WirelessSetupActivity.class)));
-    button("3  Android Auto konfigurieren",()->startActivity(new Intent(this,com.andrerinas.openheadunit.main.MainActivity.class)));
-    button("4  Einrichtung abschließen",()->{
-      getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putBoolean("complete",true).apply();
-      startActivity(new Intent(this,LauncherActivity.class));finish();
-    });
-    setContentView(layout);
+  private TextView text(String text,int sp,int color,boolean bold) {
+    TextView t=new TextView(this);t.setText(text);t.setTextSize(sp);t.setTextColor(color);
+    if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+    return t;
   }
+  private void add(LinearLayout target,View view,int top) {
+    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
+    lp.topMargin=dp(top);target.addView(view,lp);
+  }
+  private void button(LinearLayout target,String title,boolean primary,Runnable run){
+    TextView b=text(title,17,WHITE,true);b.setGravity(Gravity.CENTER);
+    b.setMinHeight(dp(51));b.setPadding(dp(14),dp(9),dp(14),dp(9));
+    b.setBackground(shape(primary?BLUE:PANEL,primary?0:0xff315170));
+    b.setOnClickListener(v->run.run());add(target,b,8);
+  }
+  private void card(String icon,String title,String detail,String status,Runnable action){
+    LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);
+    card.setPadding(dp(18),dp(13),dp(18),dp(13));
+    card.setBackground(shape(PANEL,0xff284762));
+    add(card,text(icon+"  "+title,18,WHITE,true),0);
+    add(card,text(detail,13,MUTED,false),5);
+    if(status!=null)add(card,text(status,13,0xff76dcb1,true),7);
+    if(action!=null)card.setOnClickListener(v->action.run());
+    add(body,card,10);
+  }
+  private void start(Intent i){
+    try{startActivity(i);}catch(Exception e){android.widget.Toast.makeText(this,"Systemfunktion auf dieser Headunit nicht verfügbar",android.widget.Toast.LENGTH_LONG).show();}
+  }
+  private String bt(){
+    try {
+      BluetoothManager manager=(BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
+      BluetoothAdapter adapter=manager==null?null:manager.getAdapter();
+      return adapter==null?"Nicht verfügbar":adapter.isEnabled()?"Eingeschaltet":"Ausgeschaltet";
+    }catch(Exception e){return "Zugriff eingeschränkt";}
+  }
+  private String wifi(){
+    try{
+      WifiManager manager=(WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+      return manager==null?"Nicht verfügbar":manager.isWifiEnabled()?"Eingeschaltet":"Ausgeschaltet";
+    }catch(Exception e){return "Zugriff eingeschränkt";}
+  }
+  private boolean p2p(){
+    return getSystemService(Context.WIFI_P2P_SERVICE) instanceof WifiP2pManager;
+  }
+  @Override public void onCreate(Bundle saved){
+    super.onCreate(saved);if(saved!=null)page=saved.getInt("page",0);render();
+  }
+  @Override protected void onSaveInstanceState(Bundle out){out.putInt("page",page);super.onSaveInstanceState(out);}
+  @Override protected void onResume(){super.onResume();if(root!=null&&page>0&&page<3)render();}
+  private void gotoPage(int n){page=n;render();}
+  private void finishSetup(){
+    getSharedPreferences("dynamicos_setup",MODE_PRIVATE).edit().putBoolean("complete",true).apply();
+    start(new Intent(this,LauncherActivity.class));finish();
+  }
+  private void render(){
+    root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
+    root.setBackgroundColor(BG);root.setPadding(dp(24),dp(12),dp(24),dp(12));
+    TextView brand=text("dynamicOS   /   FIESTA UNIFIED",15,WHITE,true);
+    add(root,brand,0);
+    LinearLayout progress=new LinearLayout(this);progress.setOrientation(LinearLayout.HORIZONTAL);
+    for(int n=0;n<4;n++){
+      TextView dot=text(n==page?"●":"●",20,n<=page?0xff2395ff:0xff40546a,true);
+      dot.setGravity(Gravity.CENTER);
+      progress.addView(dot,new LinearLayout.LayoutParams(0,dp(28),1));
+    }
+    add(root,progress,3);
+    add(root,text("Schritt "+(page+1)+" von 4",13,MUTED,false),0);
+    ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);
+    body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);
+    body.setPadding(0,dp(10),0,dp(14));scroll.addView(body);
+    root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+    footer=new LinearLayout(this);footer.setOrientation(LinearLayout.HORIZONTAL);
+    root.addView(footer,new LinearLayout.LayoutParams(-1,-2));
+    if(page==0){
+      add(body,text("Willkommen bei dynamicOS",27,WHITE,true),7);
+      add(body,text("Dein Ford Fiesta. Eine Oberfläche für Navigation, Telefon und Medien.",16,MUTED,false),8);
+      card("◇","Einfach in vier Schritten","Verbinden, Funkmodule prüfen und direkt losfahren.",null,null);
+      button(footer,"Einrichtung starten",true,()->gotoPage(1));
+      button(footer,"Später",false,this::finishSetup);
+    }else if(page==1){
+      add(body,text("Smartphone verbinden",27,WHITE,true),0);
+      add(body,text("Kopple dein Smartphone mit der Bluetooth-Schnittstelle der Headunit. Danach kann Android Auto die WLAN-Verbindung aufbauen.",15,MUTED,false),7);
+      card("ᛒ","Bluetooth-Kopplung","Android-Systemeinstellungen öffnen","Status: "+bt(),()->start(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
+      card("➤","Android Auto kabellos","Native Receiver-Konfiguration öffnen",null,
+        ()->start(new Intent(this,com.andrerinas.openheadunit.main.SettingsActivity.class)));
+      button(footer,"Zurück",false,()->gotoPage(0));
+      button(footer,"Weiter",true,()->gotoPage(2));
+    }else if(page==2){
+      add(body,text("Verbindungen prüfen",27,WHITE,true),0);
+      add(body,text("Die Anzeige prüft vorhandene Android-Schnittstellen. Sie bestätigt noch keine erfolgreiche Projektion.",14,MUTED,false),7);
+      card("ᛒ","Bluetooth","Kopplung über die vorhandene Android-/OEM-Funkschnittstelle",bt(),()->start(new Intent(Settings.ACTION_BLUETOOTH_SETTINGS)));
+      card("◉","WLAN / Hotspot","Für den kabellosen Android-Auto-Datenkanal",wifi(),()->start(new Intent(Settings.ACTION_WIFI_SETTINGS)));
+      card("⇄","Wi-Fi Direct","Erforderlich bei nativer P2P-Verbindung",p2p()?"Manager vorhanden":"Nicht verfügbar",null);
+      card("⚙","Erweiterte Funkkonfiguration","Herstellermodul, Wi-Fi Direct und Hotspot in AutoConnect einstellen",null,
+        ()->start(new Intent(this,com.andrerinas.openheadunit.main.SettingsActivity.class)));
+      button(footer,"Zurück",false,()->gotoPage(1));
+      button(footer,"Weiter",true,()->gotoPage(3));
+    }else{
+      add(body,text("Einrichtung abgeschlossen",27,WHITE,true),0);
+      add(body,text("dynamicOS Fiesta ist vorbereitet. Die tatsächliche Verbindung wird beim Start von Android Auto geprüft.",15,MUTED,false),8);
+      card("⌂","Startseite","Alle Funktionen in einer Oberfläche",null,this::finishSetup);
+      card("➤","Android Auto","Receiver starten und Smartphone verbinden",null,
+        ()->start(new Intent(this,com.andrerinas.openheadunit.main.MainActivity.class)));
+      button(footer,"Zurück",false,()->gotoPage(2));
+      button(footer,"Jetzt loslegen",true,this::finishSetup);
+    }
+    setContentView(root);
+  }
+  @Override public void onBackPressed(){if(page>0)gotoPage(page-1);else super.onBackPressed();}
 }'''
 (javadir/"SetupActivity.java").write_text(setup)
 
@@ -174,8 +280,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.2.0-unified"')
-g=g.replace('versionCode = 122','versionCode = 102')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.3.0-unified"')
+g=g.replace('versionCode = 122','versionCode = 103')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
