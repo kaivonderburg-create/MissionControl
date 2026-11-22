@@ -96,8 +96,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.0.0-unified"')
-g=g.replace('versionCode = 122','versionCode = 100')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.1.0-unified"')
+g=g.replace('versionCode = 122','versionCode = 101')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
@@ -123,49 +123,125 @@ k=k.replace(anchor,anchor+"\n        installFiestaDock()")
 anchor2="    private enum class OverlayState { STARTING, RECONNECTING, HIDDEN }"
 assert k.count(anchor2)==1
 dock=r'''
-    private var fiestaDockVisible = true
+    // The projection renderer is hosted in this Activity, not launched via a
+    // separate package. The dock and the projected surface coexist in one View tree.
+    private var fiestaSplitEnabled = true
+    private var fiestaPanel: LinearLayout? = null
+    private val fiestaPanelWidth: Int get() = (resources.displayMetrics.density * 228).toInt()
+    private fun fiestaLabel(label: String, size: Float = 15f): TextView =
+        TextView(this).apply {
+            text = label
+            textSize = size
+            gravity = Gravity.CENTER_VERTICAL
+            setTextColor(Color.WHITE)
+            setPadding(12, 5, 8, 5)
+        }
+    private fun fiestaAction(label: String, action: () -> Unit): TextView =
+        fiestaLabel(label, 17f).apply {
+            minHeight = (resources.displayMetrics.density * 44).toInt()
+            setBackgroundColor(Color.rgb(17, 49, 78))
+            setOnClickListener { action() }
+        }
+    private fun fiestaMediaKey(code: Int) {
+        val audio = getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
+        val now = android.os.SystemClock.uptimeMillis()
+        audio.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_DOWN, code, 0))
+        audio.dispatchMediaKeyEvent(KeyEvent(now, now, KeyEvent.ACTION_UP, code, 0))
+    }
     private fun installFiestaDock() {
         val host = findViewById<FrameLayout>(R.id.container) ?: return
-        val dock = LinearLayout(this).apply {
+        val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.rgb(7, 24, 45))
-            setPadding(6, 10, 6, 10)
+            setPadding(4, 6, 4, 6)
         }
-        fun addDockAction(symbol: String, action: () -> Unit) {
-            val item = TextView(this).apply {
-                text = symbol
-                textSize = 20f
-                gravity = Gravity.CENTER
-                setTextColor(Color.WHITE)
-                setOnClickListener { action() }
-            }
-            dock.addView(item, LinearLayout.LayoutParams(68, 0, 1f))
-        }
-        addDockAction("⌂") {
+        fiestaPanel = panel
+        panel.addView(fiestaLabel("dynamicOS  /  FIESTA", 15f))
+        panel.addView(fiestaAction("⌂  Startseite") {
             startActivity(Intent(this, de.vd3.fiesta.LauncherActivity::class.java))
+        })
+        panel.addView(fiestaAction("☎  Telefon") {
+            showFiestaCommunication()
+        })
+        panel.addView(fiestaAction("♫  Medien") {
+            showFiestaMedia()
+        })
+        panel.addView(fiestaAction("⚙  Verbindung") {
+            startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS))
+        })
+        panel.addView(fiestaAction("⛶  Vollbild / geteilt") {
+            fiestaSplitEnabled = !fiestaSplitEnabled
+            applyFiestaSplitLayout()
+        })
+        host.addView(panel, FrameLayout.LayoutParams(fiestaPanelWidth,
+            FrameLayout.LayoutParams.MATCH_PARENT, Gravity.RIGHT))
+    }
+    private fun applyFiestaSplitLayout() {
+        val host = findViewById<FrameLayout>(R.id.container) ?: return
+        val panel = fiestaPanel ?: return
+        panel.visibility = if (fiestaSplitEnabled) View.VISIBLE else View.GONE
+        if (::projectionView.isInitialized) {
+            val view = projectionView as View
+            // Make actual room for the panel instead of obscuring projection pixels.
+            // Projection size and touch geometry follow the renderer surface resize.
+            val lp = (view.layoutParams as? FrameLayout.LayoutParams)
+                ?: FrameLayout.LayoutParams(-1, -1)
+            lp.width = FrameLayout.LayoutParams.MATCH_PARENT
+            lp.height = FrameLayout.LayoutParams.MATCH_PARENT
+            lp.rightMargin = if (fiestaSplitEnabled) fiestaPanelWidth else 0
+            lp.gravity = Gravity.LEFT or Gravity.TOP
+            view.layoutParams = lp
+            view.requestLayout()
+            panel.bringToFront()
         }
-        addDockAction("☎") {
-            val i = Intent(Intent.ACTION_DIAL)
-            try { startActivity(i) } catch (_: Exception) {
-                Toast.makeText(this, "Telefonie auf diesem Gerät nicht verfügbar", Toast.LENGTH_SHORT).show()
+    }
+    private fun showFiestaCommunication() {
+        val bluetooth = (getSystemService(android.content.Context.BLUETOOTH_SERVICE)
+            as? android.bluetooth.BluetoothManager)?.adapter
+        val state = when {
+            bluetooth == null -> "Bluetooth nicht verfügbar"
+            bluetooth.isEnabled -> "Bluetooth eingeschaltet"
+            else -> "Bluetooth ausgeschaltet"
+        }
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("dynamicOS  ·  Kommunikation")
+            .setMessage("$state\n\nTelefonie über das gekoppelte Smartphone setzt ein erreichbares HFP-Telefonieprofil voraus. Die Freisprechfunktion muss von der Radio-Firmware bereitgestellt werden.")
+            .setPositiveButton("Bluetooth koppeln") { _, _ ->
+                startActivity(Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS))
             }
-        }
-        addDockAction("♫") {
-            val i = Intent("android.intent.action.MUSIC_PLAYER")
-            try { startActivity(i) } catch (_: Exception) {
-                Toast.makeText(this, "Kein Medienplayer verfügbar", Toast.LENGTH_SHORT).show()
+            .setNeutralButton("Wählen") { _, _ ->
+                try { startActivity(Intent(Intent.ACTION_DIAL)) }
+                catch (_: Exception) {
+                    Toast.makeText(this, "Keine Telefonie-Schnittstelle verfügbar", Toast.LENGTH_LONG).show()
+                }
             }
+            .setNegativeButton("Schließen", null)
+            .show()
+    }
+    private fun showFiestaMedia() {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(8, 8, 8, 8)
         }
-        addDockAction("⛶") {
-            fiestaDockVisible = !fiestaDockVisible
-            dock.alpha = if (fiestaDockVisible) 1f else 0.28f
-            // Projection keeps the same decoder/session; dock merely fades.
+        fun media(label: String, code: Int) {
+            row.addView(fiestaAction(label) { fiestaMediaKey(code) },
+                LinearLayout.LayoutParams(0, -2, 1f))
         }
-        host.addView(dock, FrameLayout.LayoutParams(80, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.RIGHT))
+        media("❮❮", KeyEvent.KEYCODE_MEDIA_PREVIOUS)
+        media("▶Ⅱ", KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE)
+        media("❯❯", KeyEvent.KEYCODE_MEDIA_NEXT)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("dynamicOS  ·  Medien")
+            .setView(row)
+            .setPositiveButton("Schließen", null)
+            .show()
     }
 
 '''
 k=k.replace(anchor2,dock+anchor2)
+render_anchor="        container.addView(view)"
+assert k.count(render_anchor)==1
+k=k.replace(render_anchor,render_anchor+"\n        applyFiestaSplitLayout()")
 proj.write_text(k)
 
 print("Single-APK merge completed; Fiesta and receiver share one applicationId and one APK.")
