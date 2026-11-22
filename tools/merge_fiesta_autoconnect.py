@@ -9,98 +9,203 @@ fiesta=Path("dynamicOS-Fiesta/app/src/main")
 src=root/"app/src/main"
 javadir=src/"java/de/vd3/fiesta"
 javadir.mkdir(parents=True,exist_ok=True)
-for name in ("LauncherActivity.java","MainActivity.java"):
-    data=(fiesta/"java/de/vd3/fiesta"/name).read_text()
-    data=data.replace("package de.vd3.fiesta;", "package de.vd3.fiesta;\nimport com.andrerinas.openheadunit.R;")
-    if name=="LauncherActivity.java":
-        data=data.replace("if (isDefaultHome()) home(); else setupHome();",
-            'if (!getSharedPreferences("dynamicos_setup", MODE_PRIVATE).getBoolean("complete", false)) {\n'
-            '            startActivity(new Intent(this, SetupActivity.class)); finish(); return;\n'
-            '        }\n'
-            '        if (isDefaultHome()) home(); else setupHome();')
-        data=re.sub(r'// The Android Auto receiver must be installed separately until its source is integrated\..*?Toast\.makeText\(this, "Kein kompatibler Empfänger installiert", Toast\.LENGTH_LONG\)\.show\(\);',
-            'startActivity(new Intent(this, com.andrerinas.openheadunit.main.MainActivity.class));',
-            data,flags=re.S)
-        data=data.replace("Empfänger separat erforderlich.", "Empfänger ist Bestandteil von dynamicOS.")
-        data=data.replace('() -> setting(Settings.ACTION_BLUETOOTH_SETTINGS)', 'this::openWirelessSetup')
-        data=data.replace('() -> setting(Settings.ACTION_WIFI_SETTINGS)', 'this::openWirelessSetup')
-        data=data.replace('    private void openMusic() {',
-            '    private void openWirelessSetup() { startActivity(new Intent(this, WirelessSetupActivity.class)); }\n\n    private void openMusic() {')
+(javadir/"MainActivity.java").write_text((fiesta/"java/de/vd3/fiesta/MainActivity.java").read_text().replace("package de.vd3.fiesta;", "package de.vd3.fiesta;\nimport com.andrerinas.openheadunit.R;"))
+launcher=r'''package de.vd3.fiesta;
 
-        # Unified dark-blue launcher with six primary actions, designed for 1 GB RAM.
-        data=data.replace("private final int bg = 0xff070f1b, panel = 0xff0e2030, cyan = 0xff00dcef;",
-            "private final int bg = 0xff071326, panel = 0xff122943, cyan = 0xff3d9dff;")
-        data=data.replace("new LinearLayout.LayoutParams(dp(66), dp(66))",
-            "new LinearLayout.LayoutParams(dp(45), dp(45))")
-        data=data.replace('label(title, 22, Color.WHITE, true)',
-            'label(title, 17, Color.WHITE, true)')
-        data=data.replace("new LinearLayout.LayoutParams(-1, dp(42))",
-            "new LinearLayout.LayoutParams(-1, dp(32))")
-        old_home_start=data.index("    private void home() {")
-        old_home_end=data.index("    private void addTile(",old_home_start)
-        new_home=r'''    private void home() {
-        scaffold("Fiesta Unified");
-        LinearLayout content = new LinearLayout(this);
-        content.setPadding(0, dp(12), 0, dp(10));
-        root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
+import android.app.Activity;
+import android.os.Bundle;
+import android.content.Intent;
+import android.content.Context;
+import android.provider.Settings;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.media.AudioManager;
+import android.view.Gravity;
+import android.view.KeyEvent;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.ImageView;
+import android.widget.TextView;
+import android.widget.Toast;
+import com.andrerinas.openheadunit.R;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
-        LinearLayout vehicle = new LinearLayout(this);
-        vehicle.setOrientation(LinearLayout.VERTICAL);
-        vehicle.setGravity(Gravity.CENTER);
-        vehicle.setPadding(dp(6), dp(6), dp(6), dp(6));
-        vehicle.setBackground(shape(0xff102641, 0xff235178));
-        ImageView car = new ImageView(this);
-        car.setImageResource(R.drawable.fiesta_graphite);
-        car.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        vehicle.addView(car, new LinearLayout.LayoutParams(-1, 0, 1));
-        TextView model = label("FORD FIESTA  /  Mk7", 18, Color.WHITE, true);
-        model.setGravity(Gravity.CENTER);
-        vehicle.addView(model, new LinearLayout.LayoutParams(-1, dp(30)));
-        TextView subtitle = label("W-S 107  ·  2015", 13, 0xffa4bfd4, false);
-        subtitle.setGravity(Gravity.CENTER);
-        vehicle.addView(subtitle, new LinearLayout.LayoutParams(-1, dp(24)));
-        LinearLayout.LayoutParams vp = new LinearLayout.LayoutParams(0,-1,.35f);
-        vp.rightMargin = dp(10);
-        content.addView(vehicle,vp);
-
-        GridLayout grid = new GridLayout(this);
-        grid.setColumnCount(3);
-        grid.setRowCount(2);
-        content.addView(grid,new LinearLayout.LayoutParams(0,-1,.65f));
-        addTile(grid,"auto","Android Auto",true,this::launchReceiver,0,0);
-        addTile(grid,"phone","Telefon",false,this::openPhone,0,1);
-        addTile(grid,"music","Medien",false,this::openMusic,0,2);
-        addTile(grid,"car","Fahrzeug",false,this::vehicleMenu,1,0);
-        addTile(grid,"wifi","Verbindung",false,this::openWirelessSetup,1,1);
-        addTile(grid,"settings","Einrichtung",false,()->
-            startActivity(new Intent(this,SetupActivity.class)),1,2);
-        navBar("Start");
+/** dynamicOS Fiesta's independent SYNC-style home. One activity, no WebView, no external UI bridge. */
+public final class LauncherActivity extends Activity {
+    private static final int BG=0xff081421, PANEL=0xff10263b, PANEL2=0xff17334e;
+    private static final int WHITE=0xfff7faff, MUTED=0xffa5bfd5, BLUE=0xff53a9ff, GREEN=0xff82dab2;
+    private static final String[] TABS={"Start","Navigation","Telefon","Medien","Fahrzeug","System"};
+    private int page=0;
+    private LinearLayout root, content, dock;
+    private boolean started=false;
+    private int dp(float n){return (int)(getResources().getDisplayMetrics().density*n+0.5f);}
+    private GradientDrawable bg(int color,int radius){
+        GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(radius));return d;
     }
-
-'''
-        data=data[:old_home_start]+new_home+data[old_home_end:]
-        data=data.replace("private void openMusic() {", """private void openPhone() {
-        try { startActivity(new Intent(Intent.ACTION_DIAL)); }
-        catch (Exception ex) {
-            Toast.makeText(this, "Telefonie benötigt ein kompatibles Bluetooth-HFP-Profil", Toast.LENGTH_LONG).show();
-            openWirelessSetup();
+    private TextView text(String s,int sp,boolean bold,int color){
+        TextView t=new TextView(this);t.setText(s);t.setTextSize(sp);t.setTextColor(color);
+        t.setGravity(Gravity.CENTER_VERTICAL);t.setSingleLine(false);t.setMaxLines(2);
+        if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        return t;
+    }
+    private void add(LinearLayout p,View v,int top){
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.topMargin=dp(top);p.addView(v,lp);
+    }
+    private TextView action(String title,String sub,Runnable call) {
+        TextView b=text(title+"     ›",18,true,WHITE);
+        b.setContentDescription(title+" "+sub);
+        b.setPadding(dp(17),dp(10),dp(14),dp(10));
+        b.setBackground(bg(PANEL2,13));
+        b.setOnClickListener(v->call.run());
+        return b;
+    }
+    private LinearLayout card(String title,String info,Runnable click){
+        LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);
+        l.setGravity(Gravity.CENTER_VERTICAL);
+        l.setPadding(dp(18),dp(14),dp(18),dp(14));l.setBackground(bg(PANEL,14));
+        add(l,text(title,19,true,WHITE),0);add(l,text(info,13,false,MUTED),7);
+        if(click!=null)l.setOnClickListener(v->click.run());
+        return l;
+    }
+    private void openActivity(Class<?> activity){
+        try{startActivity(new Intent(this,activity).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));}
+        catch(Exception e){Toast.makeText(this,"Funktion nicht verfügbar",Toast.LENGTH_LONG).show();}
+    }
+    private void openReceiver(){openActivity(com.andrerinas.openheadunit.main.MainActivity.class);}
+    private void media(int key){
+        AudioManager audio=(AudioManager)getSystemService(Context.AUDIO_SERVICE);
+        if(audio==null)return;
+        long t=android.os.SystemClock.uptimeMillis();
+        audio.dispatchMediaKeyEvent(new KeyEvent(t,t,KeyEvent.ACTION_DOWN,key,0));
+        audio.dispatchMediaKeyEvent(new KeyEvent(t,t,KeyEvent.ACTION_UP,key,0));
+    }
+    @Override public void onCreate(Bundle saved){
+        super.onCreate(saved);
+        getWindow().getDecorView().setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION);
+        if(saved!=null)page=saved.getInt("page",0);
+        started=getSharedPreferences("dynamicos_setup",MODE_PRIVATE).getBoolean("complete",false);
+        if(!started){openActivity(SetupActivity.class);finish();return;}
+        showPage();
+    }
+    @Override public void onSaveInstanceState(Bundle out){out.putInt("page",page);super.onSaveInstanceState(out);}
+    @Override protected void onResume(){super.onResume();if(started)showPage();}
+    private void jump(int index){page=index;showPage();}
+    private void showPage(){
+        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(BG);
+        root.setPadding(dp(17),dp(10),dp(17),dp(8));
+        LinearLayout bar=new LinearLayout(this);bar.setGravity(Gravity.CENTER_VERTICAL);
+        TextView brand=text("dynamicOS  |  FIESTA",20,true,WHITE);
+        bar.addView(brand,new LinearLayout.LayoutParams(0,dp(48),1));
+        TextView clock=text(new SimpleDateFormat("HH:mm",Locale.GERMANY).format(new Date()),16,true,MUTED);
+        clock.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
+        bar.addView(clock,new LinearLayout.LayoutParams(dp(100),dp(48)));
+        root.addView(bar);
+        View line=new View(this);line.setBackgroundColor(0xff22465f);
+        root.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
+        content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(0,dp(13),0,dp(12));
+        root.addView(content,new LinearLayout.LayoutParams(-1,0,1f));
+        if(page==0)home();
+        else if(page==1)navigation();
+        else if(page==2)phone();
+        else if(page==3)music();
+        else if(page==4)vehicle();
+        else system();
+        dock=new LinearLayout(this);dock.setOrientation(LinearLayout.HORIZONTAL);
+        dock.setGravity(Gravity.CENTER_VERTICAL);dock.setPadding(dp(3),dp(3),dp(3),dp(3));
+        dock.setBackground(bg(0xff112c45,16));
+        for(int i=0;i<TABS.length;i++){
+            final int n=i;
+            TextView tab=text(TABS[i],14,i==page,i==page?BLUE:WHITE);
+            tab.setGravity(Gravity.CENTER);tab.setMinHeight(dp(58));
+            if(i==page)tab.setBackground(bg(0xff214560,12));
+            tab.setOnClickListener(v->jump(n));
+            dock.addView(tab,new LinearLayout.LayoutParams(0,dp(58),1));
         }
+        root.addView(dock);
+        setContentView(root);
     }
-
-    private void openMusic() {""")
-        data=data.replace('} else if ("car".equals(type)) {',
-            """} else if ("phone".equals(type)) {
-                Path q=new Path();q.moveTo(29,21);q.lineTo(40,17);q.lineTo(49,35);
-                q.lineTo(41,43);q.quadTo(51,60,62,63);q.lineTo(70,55);
-                q.lineTo(85,64);q.lineTo(80,81);q.quadTo(66,90,43,73);
-                q.quadTo(14,52,22,32);q.close();canvas.drawPath(q,p);
-            } else if ("wifi".equals(type)) {
-                canvas.drawArc(14,21,86,85,207,126,false,p);
-                canvas.drawArc(28,39,72,83,208,124,false,p);
-                canvas.drawCircle(50,78,4,p);
-            } else if ("car".equals(type)) {""")
-
-    (javadir/name).write_text(data)
+    private void home(){
+        LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);
+        content.addView(row,new LinearLayout.LayoutParams(-1,-1));
+        LinearLayout car=card("FORD FIESTA Mk7","2015  •  W-S 107",()->jump(4));
+        ImageView image=new ImageView(this);
+        image.setImageResource(R.drawable.fiesta_graphite);
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        car.addView(image,0,new LinearLayout.LayoutParams(-1,0,1f));
+        LinearLayout.LayoutParams carLp=new LinearLayout.LayoutParams(0,-1,.40f);carLp.rightMargin=dp(12);
+        row.addView(car,carLp);
+        LinearLayout right=new LinearLayout(this);right.setOrientation(LinearLayout.VERTICAL);
+        row.addView(right,new LinearLayout.LayoutParams(0,-1,.60f));
+        TextView prompt=text("Guten Tag. Wohin geht die Fahrt?",22,true,WHITE);
+        add(right,prompt,0);
+        TextView subtitle=text("Alles in einem System. Bereit für Navigation, Telefon und Musik.",13,false,MUTED);
+        add(right,subtitle,5);
+        LinearLayout top=new LinearLayout(this);top.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams topLp=new LinearLayout.LayoutParams(-1,0,1f);topLp.topMargin=dp(12);
+        right.addView(top,topLp);
+        LinearLayout nav=card("Navigation","Android Auto und Karten",this::openReceiver);
+        LinearLayout med=card("Musik","Wiedergabe und Medien",()->jump(3));
+        LinearLayout.LayoutParams half=new LinearLayout.LayoutParams(0,-1,1f);half.rightMargin=dp(8);
+        top.addView(nav,half);top.addView(med,new LinearLayout.LayoutParams(0,-1,1f));
+        LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout.LayoutParams bottomLp=new LinearLayout.LayoutParams(-1,0,1f);bottomLp.topMargin=dp(8);
+        right.addView(bottom,bottomLp);
+        LinearLayout phone=card("Telefon","Verbinden und anrufen",()->jump(2));
+        LinearLayout auto=card("Android Auto","Vollbild oder Fiesta-Ansicht",this::openReceiver);
+        LinearLayout.LayoutParams half2=new LinearLayout.LayoutParams(0,-1,1f);half2.rightMargin=dp(8);
+        bottom.addView(phone,half2);bottom.addView(auto,new LinearLayout.LayoutParams(0,-1,1f));
+    }
+    private void heading(String title,String sub){
+        add(content,text(title,26,true,WHITE),0);
+        add(content,text(sub,14,false,MUTED),6);
+    }
+    private void navigation(){
+        heading("Navigation","Android Auto ist Teil des Fiesta-Infotainments.");
+        add(content,action("Karten und Navigation öffnen","Projektion",this::openReceiver),19);
+        add(content,action("Fiesta-Dashboard","Zur Startseite",()->jump(0)),9);
+    }
+    private void phone(){
+        heading("Telefon","Ein zentraler Bereich für Verbindung und Anrufe.");
+        add(content,action("Smartphone verbinden","Bluetooth",()->openActivity(WirelessSetupActivity.class)),19);
+        add(content,action("Wähltastatur öffnen","Verfügbare Telefonie",()->{
+            try{startActivity(new Intent(Intent.ACTION_DIAL));}
+            catch(Exception e){Toast.makeText(this,"Telefonie von der Headunit nicht bereitgestellt",Toast.LENGTH_LONG).show();}
+        }),9);
+    }
+    private void music(){
+        heading("Medien","Wiedergabe steuern, ohne das Fiesta-System zu verlassen.");
+        LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);
+        for(int i=0;i<3;i++){
+            final int key=(i==0?KeyEvent.KEYCODE_MEDIA_PREVIOUS:
+                i==1?KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE:KeyEvent.KEYCODE_MEDIA_NEXT);
+            TextView b=text(i==0?"❮❮":i==1?"▶ / Ⅱ":"❯❯",22,true,WHITE);
+            b.setGravity(Gravity.CENTER);b.setBackground(bg(PANEL2,14));
+            b.setOnClickListener(v->media(key));
+            LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(100),1f);
+            lp.leftMargin=dp(6);row.addView(b,lp);
+        }
+        add(content,row,24);
+    }
+    private void vehicle(){
+        heading("Dein Fiesta","Fahrzeugprofil und vorhandene Fahrzeugschnittstellen.");
+        add(content,action("Ford Fiesta Mk7 · 2015","W-S 107",()->{}),19);
+        add(content,action("Raise CAN-Decoder","Fahrzeugsignale",()->openActivity(de.vd3.fiesta.MainActivity.class)),9);
+    }
+    private void system(){
+        heading("System und Verbindung","Einrichtung und Ansichtsmodus innerhalb von dynamicOS.");
+        add(content,action("Ersteinrichtung erneut öffnen","Assistent",()->openActivity(SetupActivity.class)),19);
+        add(content,action("Bluetooth und WLAN","Verbindung",()->openActivity(WirelessSetupActivity.class)),9);
+        add(content,action("Android Auto-Einstellungen","Integrierter Empfänger",()->openActivity(com.andrerinas.openheadunit.main.SettingsActivity.class)),9);
+    }
+    @Override public void onBackPressed(){jump(0);}
+}'''
+(javadir/"LauncherActivity.java").write_text(launcher)
 (src/"res/drawable-nodpi").mkdir(parents=True,exist_ok=True)
 shutil.copy2(fiesta/"res/drawable-nodpi/fiesta_graphite.png",src/"res/drawable-nodpi/fiesta_graphite.png")
 
@@ -415,8 +520,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.9.0-unified"')
-g=g.replace('versionCode = 122','versionCode = 109')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "2.0.0-unified"')
+g=g.replace('versionCode = 122','versionCode = 200')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
