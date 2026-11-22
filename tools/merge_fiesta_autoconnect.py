@@ -476,8 +476,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "2.0.0-unified"')
-g=g.replace('versionCode = 122','versionCode = 200')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "2.1.0-unified"')
+g=g.replace('versionCode = 122','versionCode = 210')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
@@ -739,6 +739,24 @@ dock=r'''
             view.layoutParams=lp
             view.requestLayout()
         }
+        // Critical: upstream Open Headunit uses a transparent full-screen
+        // OverlayTouchView to forward Android Auto taps. A full-screen
+        // interceptor consumed ALL Fiesta dashboard and bottom dock taps.
+        // Constrain this touch layer to precisely the rendered AA surface.
+        val overlay=touchOverlayView
+        if(overlay!=null) {
+            val w=resources.displayMetrics.widthPixels
+            val h=resources.displayMetrics.heightPixels
+            val touchLp=FrameLayout.LayoutParams(
+                if(split)(w*.73f).toInt() else FrameLayout.LayoutParams.MATCH_PARENT,
+                if(split)(h-fd(54)).coerceAtLeast(fd(190)) else FrameLayout.LayoutParams.MATCH_PARENT,
+                if(split)Gravity.RIGHT or Gravity.TOP else Gravity.TOP or Gravity.LEFT
+            )
+            if(split)touchLp.setMargins(0,0,0,fd(54))
+            overlay.layoutParams=touchLp
+            overlay.requestLayout()
+        }
+        // Keep local buttons interactive above the projection touch surface.
         fiestaSwitcher?.bringToFront()
     }
     private fun showFiestaCommunication() {
@@ -769,6 +787,12 @@ k=k.replace(anchor2,dock+anchor2)
 render_anchor="        container.addView(view)"
 assert k.count(render_anchor)==1
 k=k.replace(render_anchor,render_anchor+"\n        applyFiestaSplitLayout()")
+# The touch overlay is created AFTER the video surface, so update its
+# dimensions once it is attached; changing only the video did not fix taps.
+touchAttach="        container.addView(overlayView)"
+assert k.count(touchAttach)==1
+k=k.replace(touchAttach,touchAttach+"\n        applyFiestaSplitLayout()")
+
 proj.write_text(k)
 
 print("Single-APK merge completed; Fiesta and receiver share one applicationId and one APK.")
