@@ -459,10 +459,15 @@ dock=r'''
             setOnClickListener { run() }
         }
     private fun fiestaMediaKey(code: Int) {
-        val audio=getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return
+        // AA audio runs on the phone. Local AudioManager dispatch targets the
+        // headunit instead, so send transport keys through the active AA session.
+        if (commManager.connectionState.value !is CommManager.ConnectionState.TransportStarted) {
+            Toast.makeText(this,"Android Auto nicht verbunden",Toast.LENGTH_SHORT).show()
+            return
+        }
         val t=android.os.SystemClock.uptimeMillis()
-        audio.dispatchMediaKeyEvent(KeyEvent(t,t,KeyEvent.ACTION_DOWN,code,0))
-        audio.dispatchMediaKeyEvent(KeyEvent(t,t,KeyEvent.ACTION_UP,code,0))
+        commManager.sendKey(code,true,t,"projection")
+        commManager.sendKey(code,false,t,"projection")
     }
     private fun installFiestaDock() {
         val host=findViewById<FrameLayout>(R.id.container) ?: return
