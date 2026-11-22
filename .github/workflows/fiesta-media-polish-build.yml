@@ -1,0 +1,52 @@
+name: Ford Automotive · Unified APK verification
+on:
+  push:
+    branches:
+      - feature/fiesta-media-polish-20261122
+  pull_request:
+    branches:
+      - dynamicOS-fiesta-unified
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Check project sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f tools/merge_fiesta_autoconnect.py
+          test -f tools/fiesta/LauncherActivity.java
+          test -f tools/fiesta/FiestaMediaBridge.kt
+          test -d receiver/app/src/main
+          test -d dynamicOS-Fiesta/app/src/main
+          python3 -m py_compile tools/merge_fiesta_autoconnect.py
+      - name: Compose the single Android application
+        run: python3 tools/merge_fiesta_autoconnect.py
+      - name: Compile APK
+        working-directory: receiver
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace :app:assembleDebug
+      - name: Archive the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-Ford-Automotive-debug
+          path: receiver/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
