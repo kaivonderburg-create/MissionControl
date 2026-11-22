@@ -20,6 +20,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.ImageView;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -218,19 +219,38 @@ public final class LauncherActivity extends Activity {
         String aa=aaMedia().getString("artist","");
         return aa==null||aa.isEmpty()?"Android Auto verbinden oder lokale Medien wählen":aa;
     }
+    private View transportButton(int key, boolean playing) {
+        ImageButton button=new ImageButton(this);
+        int image=key==KeyEvent.KEYCODE_MEDIA_PREVIOUS
+            ?android.R.drawable.ic_media_previous
+            :key==KeyEvent.KEYCODE_MEDIA_NEXT
+                ?android.R.drawable.ic_media_next
+                :(playing?android.R.drawable.ic_media_pause:android.R.drawable.ic_media_play);
+        button.setImageResource(image);
+        button.setColorFilter(FORE);
+        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        button.setPadding(dp(13),dp(13),dp(13),dp(13));
+        button.setBackground(background(PANEL_LIFT,7));
+        button.setContentDescription(key==KeyEvent.KEYCODE_MEDIA_PREVIOUS?"Vorheriger Titel":
+            key==KeyEvent.KEYCODE_MEDIA_NEXT?"Nächster Titel":playing?"Pause":"Wiedergabe");
+        button.setOnClickListener(v->mediaCommand(key));
+        return button;
+    }
     private void playbackButtons(LinearLayout target,MediaController session){
         if(session==null && !FiestaMediaBridge.isProjectionActive(this)){
-            target.addView(control("ANDROID AUTO ÖFFNEN",this::openAuto),
+            target.addView(control("ANDROID AUTO VERBINDEN",this::openAuto),
                 new LinearLayout.LayoutParams(-1,dp(54)));
             return;
         }
-        final int[] keys={KeyEvent.KEYCODE_MEDIA_PREVIOUS,KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,KeyEvent.KEYCODE_MEDIA_NEXT};
-        final String[] labels={"❮","▶  /  Ⅱ","❯"};
-        for(int i=0;i<keys.length;i++){
-            final int key=keys[i];
+        boolean playing=FiestaMediaBridge.isProjectionActive(this)
+            ?aaMedia().getBoolean("playing",false)
+            :session!=null && session.getPlaybackState()!=null
+               && session.getPlaybackState().getState()==PlaybackState.STATE_PLAYING;
+        int[] keys={KeyEvent.KEYCODE_MEDIA_PREVIOUS,KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,KeyEvent.KEYCODE_MEDIA_NEXT};
+        for(int key:keys){
             LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-1,1);
             p.leftMargin=dp(3);p.rightMargin=dp(3);
-            target.addView(control(labels[i],()->mediaCommand(key)),p);
+            target.addView(transportButton(key,playing),p);
         }
     }
 
