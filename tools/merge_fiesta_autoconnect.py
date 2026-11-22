@@ -325,6 +325,7 @@ assert k.count(anchor2)==1
 dock=r'''
     // A single compact SYNC home affordance. AA owns the full projection surface
     // and receives all native touch events. No split panes or modal media controls.
+    private var syncHomeButton: TextView? = null
     private fun installFiestaDock() {
         val host=findViewById<FrameLayout>(R.id.container) ?: return
         val home=TextView(this).apply {
@@ -349,17 +350,20 @@ dock=r'''
         val margin=(resources.displayMetrics.density*8).toInt()
         params.setMargins(margin,margin,margin,margin)
         host.addView(home,params)
+        syncHomeButton=home
         home.bringToFront()
     }
 '''
 k=k.replace(anchor2,dock+anchor2)
 render_anchor="        container.addView(view)"
 assert k.count(render_anchor)==1
+k=k.replace(render_anchor,render_anchor+"\\n        syncHomeButton?.bringToFront()")
 
 # The touch overlay is created AFTER the video surface, so update its
 # dimensions once it is attached; changing only the video did not fix taps.
 touchAttach="        container.addView(overlayView)"
 assert k.count(touchAttach)==1
+k=k.replace(touchAttach,touchAttach+"\\n        syncHomeButton?.bringToFront()")
 
 
 proj.write_text(k)
