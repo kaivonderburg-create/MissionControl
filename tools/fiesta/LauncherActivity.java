@@ -88,7 +88,7 @@ public final class LauncherActivity extends Activity {
         }
     }
     private void openAuto() {
-        if(aaMedia().getBoolean("connected",false))
+        if(FiestaMediaBridge.isProjectionActive(this))
             open(com.andrerinas.openheadunit.aap.AapProjectionActivity.class);
         else
             open(com.andrerinas.openheadunit.main.MainActivity.class);
@@ -186,7 +186,7 @@ public final class LauncherActivity extends Activity {
         return aa==null||aa.isEmpty()?"Medien und Navigation auf deinem Smartphone":aa;
     }
     private void playbackButtons(LinearLayout target,MediaController session){
-        if(session==null && !aaMedia().getBoolean("connected",false)){
+        if(session==null && !FiestaMediaBridge.isProjectionActive(this)){
             target.addView(control("ANDROID AUTO ÖFFNEN",this::openAuto),
                 new LinearLayout.LayoutParams(-1,dp(54)));
             return;
@@ -272,7 +272,7 @@ public final class LauncherActivity extends Activity {
         MediaController controller=activeMedia();
         add(body,text(mediaTitle(controller),24,true,FORE),20);
         add(body,text(mediaArtist(controller),14,false,SECONDARY),6);
-        if(controller==null && !aaMedia().getBoolean("connected",false)){
+        if(controller==null && !FiestaMediaBridge.isProjectionActive(this)){
             add(body,row("Android Auto öffnen","Smartphone verbinden",this::openAuto),22);
         }else{
             LinearLayout controls=new LinearLayout(this);
