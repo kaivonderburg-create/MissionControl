@@ -13,6 +13,7 @@ javadir.mkdir(parents=True,exist_ok=True)
 # The standalone Java source is authoritative; no generated Java string escaping.
 launcher=Path("tools/fiesta/LauncherActivity.java").read_text(encoding="utf-8")
 (javadir/"LauncherActivity.java").write_text(launcher,encoding="utf-8")
+(javadir/"MediaHardwareActivity.java").write_text(Path("tools/fiesta/MediaHardwareActivity.java").read_text(encoding="utf-8"),encoding="utf-8")
 (javadir/"MediaAccessService.java").write_text(
     (fiesta/"java/de/vd3/fiesta/MediaAccessService.java").read_text(encoding="utf-8"), encoding="utf-8")
 (src/"res/drawable-nodpi").mkdir(parents=True,exist_ok=True)
@@ -282,6 +283,7 @@ addon='''\n        <!-- One installed app: native Fiesta HOME, setup, and Androi
             android:exported="false">
             <intent-filter><action android:name="android.service.notification.NotificationListenerService"/></intent-filter>
         </service>
+        <activity android:name="de.vd3.fiesta.MediaHardwareActivity" android:exported="false" android:screenOrientation="landscape" />
         <activity android:name="de.vd3.fiesta.MainActivity" android:exported="false"
             android:screenOrientation="landscape" />
 '''
