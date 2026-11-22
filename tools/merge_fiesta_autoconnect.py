@@ -415,8 +415,8 @@ manifest.write_text(m)
 gradle=root/"app/build.gradle.kts"
 g=gradle.read_text()
 g=g.replace('applicationId = "com.andrerinas.headunitrevived"','applicationId = "de.vd3.fiesta.unified"')
-g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.8.0-unified"')
-g=g.replace('versionCode = 122','versionCode = 108')
+g=g.replace('versionName = "4.0.0-beta2"','versionName = "1.9.0-unified"')
+g=g.replace('versionCode = 122','versionCode = 109')
 # Fiesta uses API 23+ and original launcher was built against 28; retain the receiver
 # target behavior until verified on the physical Android 8.1 head unit.
 g=g.replace('create("github") {\n            dimension = "distribution"',
@@ -442,38 +442,126 @@ receiverText=receiverText.replace(mainAnchor,mainAnchor+"\n        installFiesta
 hook="    override fun onCreate(savedInstanceState: Bundle?) {"
 assert receiverText.count(hook)==1
 receiverUi=r'''
+    // Native Fiesta shell around the real receiver HomeFragment.
+    // The connection button delegates to the receiver's own click handler,
+    // not another Android app or a mocked wireless connection.
     private fun installFiestaConnectionShell() {
         val host=findViewById<FrameLayout>(R.id.root) ?: return
-        // Inset the receiver controls rather than covering pairing buttons.
-        val pad=(resources.displayMetrics.density * 52).toInt()
-        findViewById<View>(R.id.main_content)?.setPadding(0,pad,0,0)
-        val top=android.widget.LinearLayout(this).apply {
+        val density=resources.displayMetrics.density
+        fun dp(n:Int)=(density*n).toInt()
+        val dashboard=android.widget.LinearLayout(this).apply {
+            orientation=android.widget.LinearLayout.VERTICAL
+            setPadding(dp(22),dp(14),dp(22),dp(14))
+            setBackgroundColor(Color.rgb(7,19,38))
+            isClickable=true
+        }
+        val header=android.widget.LinearLayout(this).apply {
             orientation=android.widget.LinearLayout.HORIZONTAL
             gravity=android.view.Gravity.CENTER_VERTICAL
-            setPadding(12,0,12,0)
-            setBackgroundColor(Color.rgb(9,25,43))
         }
         val brand=TextView(this).apply {
-            text="dynamicOS  /  FIESTA"
+            text="dynamicOS    FIESTA"
             setTextColor(Color.WHITE)
-            textSize=17f
+            textSize=20f
             typeface=android.graphics.Typeface.DEFAULT_BOLD
         }
-        top.addView(brand,android.widget.LinearLayout.LayoutParams(0,-2,1f))
-        val back=TextView(this).apply {
-            text="⌂  Fiesta"
-            setTextColor(Color.rgb(108,189,255))
-            textSize=16f
-            setPadding(12,8,12,8)
+        header.addView(brand,android.widget.LinearLayout.LayoutParams(0,dp(45),1f))
+        val home=TextView(this).apply {
+            text="⌂  Startseite"
+            textSize=15f
+            setTextColor(Color.rgb(117,198,255))
+            gravity=android.view.Gravity.CENTER
+            setPadding(dp(14),0,dp(14),0)
             setOnClickListener {
                 startActivity(Intent(this@MainActivity,de.vd3.fiesta.LauncherActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NO_ANIMATION))
                 overridePendingTransition(0,0)
             }
         }
-        top.addView(back)
-        host.addView(top,FrameLayout.LayoutParams(-1,pad,android.view.Gravity.TOP))
-        top.bringToFront()
+        header.addView(home,android.widget.LinearLayout.LayoutParams(-2,dp(44)))
+        dashboard.addView(header)
+
+        val body=android.widget.LinearLayout(this).apply {
+            orientation=android.widget.LinearLayout.HORIZONTAL
+            gravity=android.view.Gravity.CENTER_VERTICAL
+        }
+        val info=android.widget.LinearLayout(this).apply {
+            orientation=android.widget.LinearLayout.VERTICAL
+            gravity=android.view.Gravity.CENTER_VERTICAL
+        }
+        fun caption(value:String,size:Float,color:Int,bold:Boolean=false):TextView =
+            TextView(this).apply {
+                text=value;textSize=size;setTextColor(color)
+                if(bold)typeface=android.graphics.Typeface.DEFAULT_BOLD
+                setPadding(0,dp(4),0,dp(4))
+            }
+        info.addView(caption("ANDROID AUTO",12f,Color.rgb(89,184,255),true))
+        info.addView(caption("Smartphone verbinden",26f,Color.WHITE,true))
+        info.addView(caption("Kabellos verbunden. Direkt in deinem Fiesta.",15f,
+            Color.rgb(171,196,218)))
+        val connect=TextView(this).apply {
+            text="Verbinden   ›"
+            setTextColor(Color.WHITE)
+            textSize=19f
+            typeface=android.graphics.Typeface.DEFAULT_BOLD
+            gravity=android.view.Gravity.CENTER
+            setBackgroundColor(Color.rgb(39,136,231))
+            setOnClickListener {
+                val native=findViewById<View>(R.id.home_primary_action)
+                if(native!=null&&native.isEnabled)native.performClick()
+                else Toast.makeText(this@MainActivity,
+                    "Empfänger initialisiert noch oder die Verbindungsart ist nicht verfügbar",
+                    Toast.LENGTH_LONG).show()
+            }
+        }
+        val cp=android.widget.LinearLayout.LayoutParams(dp(220),dp(56))
+        cp.topMargin=dp(18)
+        info.addView(connect,cp)
+        val nativeMode=TextView(this).apply {
+            text="Weitere Verbindungsarten"
+            textSize=14f
+            setTextColor(Color.rgb(169,208,243))
+            setPadding(0,dp(14),0,dp(8))
+            setOnClickListener { dashboard.visibility=View.GONE }
+        }
+        info.addView(nativeMode)
+        body.addView(info,android.widget.LinearLayout.LayoutParams(0,-2,0.62f))
+        val car=ImageView(this).apply {
+            setImageResource(R.drawable.fiesta_graphite)
+            scaleType=ImageView.ScaleType.FIT_CENTER
+        }
+        body.addView(car,android.widget.LinearLayout.LayoutParams(0,-1,0.38f))
+        dashboard.addView(body,android.widget.LinearLayout.LayoutParams(-1,0,1f))
+
+        val bottom=android.widget.LinearLayout(this).apply {
+            orientation=android.widget.LinearLayout.HORIZONTAL
+            gravity=android.view.Gravity.CENTER_VERTICAL
+        }
+        val chips=listOf("FI E S T A".replace(" ",""),"Navigation","Telefon","Medien","Fahrzeug")
+        chips.forEachIndexed { index, name ->
+            bottom.addView(TextView(this).apply {
+                text=name
+                textSize=14f
+                setTextColor(if(index==0)Color.rgb(105,196,255) else Color.WHITE)
+                gravity=android.view.Gravity.CENTER
+                setPadding(dp(8),0,dp(8),0)
+                setOnClickListener {
+                    if(index==0||index==4) {
+                        startActivity(Intent(this@MainActivity,de.vd3.fiesta.LauncherActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_NO_ANIMATION))
+                        overridePendingTransition(0,0)
+                    } else {
+                        Toast.makeText(this@MainActivity,
+                            "Funktion über Android Auto nach der Verbindung verfügbar",
+                            Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },android.widget.LinearLayout.LayoutParams(0,dp(48),1f))
+        }
+        dashboard.addView(bottom)
+        val anchor=findViewById<View>(R.id.main_content)
+        val place=if(anchor!=null)host.indexOfChild(anchor)+1 else host.childCount
+        host.addView(dashboard,place,FrameLayout.LayoutParams(-1,-1))
     }
 
 '''
