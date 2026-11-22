@@ -39,10 +39,10 @@ import com.andrerinas.openheadunit.R;
 /** First-run flow sharing the Fiesta system visual and navigation architecture. */
 public final class SetupActivity extends Activity {
     private int page=0;
-    private static final int BG=0xff081421,BLUE=0xff53a9ff,FG=0xfff7faff,MUTED=0xffa6bfd4,PANEL=0xff142d45;
+    private static final int BG=0xff0b1117,BLUE=0xff80c4ea,FG=0xfff3f5f6,MUTED=0xff9aaebc,PANEL=0xff151f28;
     private LinearLayout root,body,buttons;
     private int dp(int v){return (int)(v*getResources().getDisplayMetrics().density+.5f);}
-    private GradientDrawable shape(int c){GradientDrawable d=new GradientDrawable();d.setColor(c);d.setCornerRadius(dp(13));return d;}
+    private GradientDrawable shape(int c){GradientDrawable d=new GradientDrawable();d.setColor(c);d.setCornerRadius(dp(8));return d;}
     private TextView label(String s,int sp,boolean bold,int col){
         TextView t=new TextView(this);t.setText(s);t.setTextSize(sp);t.setTextColor(col);
         t.setGravity(Gravity.CENTER_VERTICAL);
@@ -54,13 +54,13 @@ public final class SetupActivity extends Activity {
     }
     private void button(String caption,boolean accent,Runnable fn){
         TextView t=label(caption,16,true,FG);t.setGravity(Gravity.CENTER);
-        t.setBackground(shape(accent?0xff257fd7:PANEL));t.setOnClickListener(v->fn.run());
+        t.setBackground(shape(accent?0xff365770:PANEL));t.setOnClickListener(v->fn.run());
         LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(52),1f);lp.leftMargin=dp(5);
         buttons.addView(t,lp);
     }
     private void option(String title,String detail,Runnable select,boolean active){
         LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);
-        l.setPadding(dp(18),dp(10),dp(18),dp(10));l.setBackground(shape(active?0xff205078:PANEL));
+        l.setPadding(dp(18),dp(10),dp(18),dp(10));l.setBackground(shape(active?0xff213a4b:PANEL));
         add(l,label(title,19,true,FG),0);add(l,label(detail,13,false,MUTED),3);
         if(select!=null)l.setOnClickListener(v->select.run());
         add(body,l,10);
@@ -92,14 +92,14 @@ public final class SetupActivity extends Activity {
         root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(BG);root.setPadding(dp(19),dp(12),dp(19),dp(11));
         LinearLayout head=new LinearLayout(this);head.setGravity(Gravity.CENTER_VERTICAL);
-        head.addView(label("dynamicOS  |  FIESTA",19,true,FG),new LinearLayout.LayoutParams(0,dp(49),1f));
+        head.addView(label("SYNC  /  dynamicOS",19,true,FG),new LinearLayout.LayoutParams(0,dp(49),1f));
         head.addView(label("EINRICHTUNG  ·  "+(page+1)+"/4",13,true,BLUE));
         root.addView(head);
-        View line=new View(this);line.setBackgroundColor(0xff245171);root.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
+        View line=new View(this);line.setBackgroundColor(0xff30414b);root.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
         LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.HORIZONTAL);
         LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,0,1f);pp.topMargin=dp(10);root.addView(panel,pp);
         LinearLayout side=new LinearLayout(this);side.setOrientation(LinearLayout.VERTICAL);
-        side.setBackground(shape(0xff10283f));side.setPadding(dp(13),dp(13),dp(13),dp(11));
+        side.setBackground(shape(0xff151f28));side.setPadding(dp(13),dp(13),dp(13),dp(11));
         LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(0,-1,.32f);sp.rightMargin=dp(12);panel.addView(side,sp);
         ImageView car=new ImageView(this);car.setImageResource(R.drawable.fiesta_graphite);
         car.setScaleType(ImageView.ScaleType.FIT_CENTER);
@@ -172,7 +172,7 @@ public final class WirelessSetupActivity extends Activity {
     private TextView state;
     private int dp(int n){return (int)(n*getResources().getDisplayMetrics().density+.5f);}
     private GradientDrawable shape(int color) {
-        GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(12));return d;
+        GradientDrawable d=new GradientDrawable();d.setColor(color);d.setCornerRadius(dp(8));return d;
     }
     private TextView label(String s,int size,int color,boolean bold){
         TextView t=new TextView(this);t.setText(s);t.setTextSize(size);t.setTextColor(color);
@@ -183,12 +183,12 @@ public final class WirelessSetupActivity extends Activity {
     private void row(String title,String desc,String status,Runnable action) {
         LinearLayout line=new LinearLayout(this);line.setOrientation(LinearLayout.HORIZONTAL);
         line.setGravity(Gravity.CENTER_VERTICAL);line.setPadding(dp(15),dp(8),dp(14),dp(8));
-        line.setBackground(shape(0xff152e46));
+        line.setBackground(shape(0xff151f28));
         LinearLayout info=new LinearLayout(this);info.setOrientation(LinearLayout.VERTICAL);
-        info.addView(label(title,18,0xfff4faff,true));
-        info.addView(label(desc,13,0xffadc5d8,false));
+        info.addView(label(title,18,0xfff3f5f6,true));
+        info.addView(label(desc,13,0xff9aaebc,false));
         line.addView(info,new LinearLayout.LayoutParams(0,-2,1f));
-        TextView badge=label(status,13,0xff7bdfb3,true);
+        TextView badge=label(status,13,0xff84d3ae,true);
         badge.setGravity(Gravity.CENTER);
         line.addView(badge,new LinearLayout.LayoutParams(dp(170),dp(48)));
         if(action!=null)line.setOnClickListener(v->action.run());
@@ -207,11 +207,11 @@ public final class WirelessSetupActivity extends Activity {
     }
     private void render(){
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(0xff081421);root.setPadding(dp(20),dp(12),dp(20),dp(12));
+        root.setBackgroundColor(0xff0b1117);root.setPadding(dp(20),dp(12),dp(20),dp(12));
         LinearLayout head=new LinearLayout(this);head.setOrientation(LinearLayout.HORIZONTAL);
-        TextView title=label("dynamicOS   |   Verbindung",21,0xfff5faff,true);
+        TextView title=label("SYNC  /  Verbindungen",21,0xfff5faff,true);
         head.addView(title,new LinearLayout.LayoutParams(0,dp(55),1f));
-        TextView back=label("‹  Fiesta",16,0xff70bdff,true);
+        TextView back=label("‹  Fiesta",16,0xff80c4ea,true);
         back.setGravity(Gravity.CENTER);back.setOnClickListener(v->finish());
         head.addView(back,new LinearLayout.LayoutParams(dp(125),dp(55)));
         root.addView(head);
