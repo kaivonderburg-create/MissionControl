@@ -12,6 +12,12 @@ import com.andrerinas.openheadunit.connection.CommManager
  */
 object FiestaMediaBridge {
     @JvmStatic
+    fun isProjectionActive(context: Context): Boolean {
+        return App.provide(context).commManager.connectionState.value is
+            CommManager.ConnectionState.TransportStarted
+    }
+
+    @JvmStatic
     fun sendMediaKey(context: Context, keyCode: Int): Boolean {
         if (keyCode != KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE &&
             keyCode != KeyEvent.KEYCODE_MEDIA_NEXT &&
