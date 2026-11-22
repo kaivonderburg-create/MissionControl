@@ -327,12 +327,13 @@ dock=r'''
     private fun installFiestaDock() {
         val host=findViewById<FrameLayout>(R.id.container) ?: return
         val home=TextView(this).apply {
-            text="⌂  SYNC"
-            textSize=14f
+            text="⌂"
+            textSize=22f
             typeface=android.graphics.Typeface.DEFAULT_BOLD
             setTextColor(Color.rgb(241,246,250))
             gravity=Gravity.CENTER
-            setBackgroundColor(Color.rgb(22,37,49))
+            setBackgroundColor(Color.rgb(21,33,42))
+            alpha=0.88f
             contentDescription="Zur SYNC-Startseite"
             setOnClickListener {
                 startActivity(Intent(this@AapProjectionActivity,de.vd3.fiesta.LauncherActivity::class.java)
@@ -341,9 +342,9 @@ dock=r'''
             }
         }
         val params=FrameLayout.LayoutParams(
-            (resources.displayMetrics.density*100).toInt(),
+            (resources.displayMetrics.density*48).toInt(),
             (resources.displayMetrics.density*44).toInt(),
-            Gravity.RIGHT or Gravity.BOTTOM
+            Gravity.RIGHT or Gravity.TOP
         )
         val margin=(resources.displayMetrics.density*8).toInt()
         params.setMargins(margin,margin,margin,margin)
