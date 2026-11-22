@@ -127,6 +127,7 @@ dock=r'''
     // separate package. The dock and the projected surface coexist in one View tree.
     private var fiestaSplitEnabled = true
     private var fiestaPanel: LinearLayout? = null
+    private var fiestaToggle: TextView? = null
     private val fiestaPanelWidth: Int get() = (resources.displayMetrics.density * 228).toInt()
     private fun fiestaLabel(label: String, size: Float = 15f): TextView =
         TextView(this).apply {
@@ -179,6 +180,7 @@ dock=r'''
             fiestaSplitEnabled = !fiestaSplitEnabled
             applyFiestaSplitLayout()
         }
+        fiestaToggle = toggle
         host.addView(toggle, FrameLayout.LayoutParams(
             (resources.displayMetrics.density * 44).toInt(),
             (resources.displayMetrics.density * 44).toInt(),
@@ -202,6 +204,7 @@ dock=r'''
             view.layoutParams = lp
             view.requestLayout()
             panel.bringToFront()
+            fiestaToggle?.bringToFront()
         }
     }
     private fun showFiestaCommunication() {
