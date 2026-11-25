@@ -1,31 +1,20 @@
-name: dynamicOS NVR nightly (isolated branch)
+name: dynamicOS NVR Debian 13 ISO (isolated source branch)
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/dynamicos-nvr-nightly.yml'
   schedule:
     - cron: '17 3 * * *'
 permissions:
   contents: read
+concurrency:
+  group: dynamicOS-nvr-iso-master
+  cancel-in-progress: false
 jobs:
-  source-check:
-    runs-on: ubuntu-24.04
-    outputs:
-      ready: ${{ steps.detect.outputs.ready }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: dynamicos-nvr-automation
-      - id: detect
-        run: |
-          if test -f nvr/nvr.py && test -f android/app/build.gradle && test -f appliance/build-iso.sh; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "NVR source not uploaded; no build performed" >> "$GITHUB_STEP_SUMMARY"
-          fi
   verify:
-    needs: source-check
-    if: needs.source-check.outputs.ready == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,42 +31,58 @@ jobs:
       - env:
           PYTHONPATH: nvr
         run: python -m unittest discover -s tests -p 'test_*.py' -v
-  android:
-    needs: verify
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: dynamicos-nvr-automation
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.11.1'
-      - working-directory: android
-        run: gradle --no-daemon :app:assembleDebug
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dynamicOS-NVR-Android-debug
-          path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
   iso:
     needs: verify
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
         with:
           ref: dynamicos-nvr-automation
-      - run: |
-          sudo apt-get update
-          sudo apt-get install -y live-build debootstrap xorriso squashfs-tools grub-efi-amd64-bin syslinux-common
-      - run: sudo bash appliance/build-iso.sh "$RUNNER_TEMP/nvr-iso"
+      - name: Free runner disk space
+        run: |
+          df -h .
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet || true
+          df -h .
+      - name: Build Debian 13 ISO in disposable privileged container
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          mkdir -p nvr-iso
+          docker run --rm --privileged --network host -v "$PWD:/work" -w /work debian:trixie bash -euo pipefail -c '
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y live-build debootstrap xorriso squashfs-tools grub-efi-amd64-bin syslinux-common ca-certificates
+            bash appliance/build-iso.sh /work/nvr-iso
+          ' 2>&1 | tee nvr-iso/build.log
+      - name: Publish diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-NVR-ISO-build-log
+          path: nvr-iso/build.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Validate ISO boot image and SHA-256
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          shopt -s nullglob
+          images=(nvr-iso/*.iso)
+          test "${#images[@]}" -eq 1
+          test "$(stat -c %s "${images[0]}")" -gt 100000000
+          xorriso -indev "${images[0]}" -report_el_torito plain
+          sha256sum "${images[0]}" > nvr-iso/SHA256SUMS.txt
+          echo 'TEST IMAGE ONLY: no production installation authorization.' >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
-          name: dynamicOS-NVR-Linux-ISO-UNVERIFIED
-          path: ${{ runner.temp }}/nvr-iso/*.iso
+          name: dynamicOS-NVR-Debian13-ISO-TEST
+          path: nvr-iso/*.iso
           if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dynamicOS-NVR-ISO-SHA256
+          path: nvr-iso/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 7
