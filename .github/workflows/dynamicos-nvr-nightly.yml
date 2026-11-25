@@ -1,4 +1,5 @@
-name: dynamicOS NVR Debian 13 ISO (isolated source branch)
+name: dynamicOS NVR v2 ISO from protected source branch
+# Second push: workflow already exists on branch; request independent CI launch.
 on:
   workflow_dispatch:
   push:
@@ -9,80 +10,132 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: dynamicOS-nvr-iso-master
+  group: dynamicOS-NVR-v2-${{ github.ref }}
   cancel-in-progress: false
 jobs:
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: projects/dynamicos-nvr
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: dynamicos-nvr-automation
+          ref: dynamicos-nvr-v2-clean
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - run: pip install 'fastapi<1' 'httpx<1' 'cryptography>=41' 'uvicorn<1'
-      - run: python -m compileall -q nvr appliance tests
-      - run: find appliance -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
-      - env:
+      - name: Install test dependencies
+        run: python -m pip install 'fastapi<1' 'httpx<1' 'cryptography>=41' 'uvicorn<1'
+      - name: Verify source and syntax
+        run: |
+          set -Eeuo pipefail
+          test -f nvr/nvr.py
+          test -f android/app/build.gradle
+          test -f appliance/build-iso.sh
+          test -f appliance/install-on-debian.sh
+          test -f appliance/start-nvr.sh
+          test -f appliance/dynamicos.desktop
+          test -f appliance/lightdm.conf
+          test -f appliance/requirements-linux.txt
+          test -f nvr/appliance_main.py
+          grep -q 'dynamicos-firstboot.service' appliance/build-iso.sh
+          grep -q 'lightdm-gtk-greeter' appliance/build-iso.sh
+          grep -q 'firmware-brcm80211' appliance/build-iso.sh
+          grep -q 'DYNAMICOS_OFFLINE' appliance/install-on-debian.sh
+          python -m compileall -q nvr appliance tests
+          find appliance -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+      - name: Run backend tests
+        env:
           PYTHONPATH: nvr
         run: python -m unittest discover -s nvr -p 'test_*.py' -v
-      - env:
+      - name: Run security and appliance tests
+        env:
           PYTHONPATH: nvr
         run: python -m unittest discover -s tests -p 'test_*.py' -v
   iso:
-    needs: verify
+    # Build ISO independently: Android/backend test failures must not suppress
+    # creation of an ISO diagnostics artifact for hardware validation.
     runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: dynamicos-nvr-automation
-      - name: Free runner disk space
+          ref: dynamicos-nvr-v2-clean
+      - name: Validate installer input before starting image build
+        run: |
+          set -Eeuo pipefail
+          bash -n projects/dynamicos-nvr/appliance/build-iso.sh
+          bash -n projects/dynamicos-nvr/appliance/install-on-debian.sh
+          bash -n projects/dynamicos-nvr/appliance/start-nvr.sh
+          test -s projects/dynamicos-nvr/appliance/requirements-linux.txt
+      - name: Free disk capacity
         run: |
           df -h .
           sudo rm -rf /usr/local/lib/android /usr/share/dotnet || true
           df -h .
-      - name: Build Debian 13 ISO in disposable privileged container
+      - name: Build Debian 13 test ISO in isolated container
         shell: bash
         run: |
           set -Eeuo pipefail
-          mkdir -p nvr-iso
-          docker run --rm --privileged --network host -v "$PWD:/work" -w /work debian:trixie bash -euo pipefail -c '
+          mkdir -p projects/dynamicos-nvr/build/iso
+          docker run --rm --privileged --network=host -v "$PWD/projects/dynamicos-nvr:/project" -w /project debian:trixie bash -euo pipefail -c '
             export DEBIAN_FRONTEND=noninteractive
             apt-get update
-            apt-get install -y live-build debootstrap xorriso squashfs-tools grub-efi-amd64-bin syslinux-common ca-certificates
-            bash appliance/build-iso.sh /work/nvr-iso
-          ' 2>&1 | tee nvr-iso/build.log
-      - name: Publish diagnostic log
+            apt-get install -y ca-certificates live-build debootstrap xorriso squashfs-tools grub-efi-amd64-bin syslinux-common
+            bash appliance/build-iso.sh /project/build/iso
+          ' 2>&1 | tee projects/dynamicos-nvr/build/iso/build.log
+      - name: Preserve ISO build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: dynamicOS-NVR-ISO-build-log
-          path: nvr-iso/build.log
+          name: dynamicOS-NVR-v2-ISO-diagnostics
+          path: projects/dynamicos-nvr/build/iso/build.log
           if-no-files-found: warn
           retention-days: 14
-      - name: Validate ISO boot image and SHA-256
+      - name: Validate ISO image and SHA-256
         shell: bash
         run: |
           set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install -y xorriso squashfs-tools
+          cd projects/dynamicos-nvr/build/iso
           shopt -s nullglob
-          images=(nvr-iso/*.iso)
+          images=(*.iso)
           test "${#images[@]}" -eq 1
           test "$(stat -c %s "${images[0]}")" -gt 100000000
           xorriso -indev "${images[0]}" -report_el_torito plain
-          sha256sum "${images[0]}" > nvr-iso/SHA256SUMS.txt
-          echo 'TEST IMAGE ONLY: no production installation authorization.' >> "$GITHUB_STEP_SUMMARY"
+          # Inspect the actual filesystem stored in the ISO, not merely the source tree.
+          mkdir -p iso-inspect
+          xorriso -osirrox on -indev "${images[0]}" -extract /live/filesystem.squashfs iso-inspect/filesystem.squashfs
+          unsquashfs -ll iso-inspect/filesystem.squashfs > iso-inspect/files.txt
+          for file in \
+            /usr/share/xsessions/dynamicos-recovery.desktop \
+            /etc/lightdm/lightdm.conf.d/40-dynamicos-recovery.conf \
+            /etc/systemd/system/dynamicos-firstboot.service \
+            /usr/local/sbin/dynamicos-firstboot \
+            /opt/dynamicos-nvr/appliance/start-nvr.sh \
+            /opt/dynamicos-nvr/venv/bin/python \
+            /opt/dynamicos-nvr/nvr/appliance_main.py; do
+            grep -Fq "squashfs-root${file}" iso-inspect/files.txt || {
+              echo "Missing runtime component in ISO: ${file}" >&2; exit 1;
+            }
+          done
+          unsquashfs -cat iso-inspect/filesystem.squashfs /usr/share/xsessions/dynamicos-recovery.desktop | grep -q 'Exec=openbox-session'
+          rm -rf iso-inspect
+          sha256sum "${images[0]}" > SHA256SUMS.txt
+          echo "Development/test ISO with offline runtime and recovery desktop" >> "$GITHUB_STEP_SUMMARY"
+          echo "Production readiness still requires encrypted vault provisioning and Mac mini hardware validation" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
-          name: dynamicOS-NVR-Debian13-ISO-TEST
-          path: nvr-iso/*.iso
+          name: dynamicOS-NVR-v2-Debian13-ISO-TEST
+          path: projects/dynamicos-nvr/build/iso/*.iso
           if-no-files-found: error
           retention-days: 7
       - uses: actions/upload-artifact@v4
         with:
-          name: dynamicOS-NVR-ISO-SHA256
-          path: nvr-iso/SHA256SUMS.txt
+          name: dynamicOS-NVR-v2-ISO-SHA256
+          path: projects/dynamicos-nvr/build/iso/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 7
